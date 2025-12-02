@@ -1,0 +1,57 @@
+# -------------------------
+# Python
+# -------------------------
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pdb
+
+# Virtual environment
+.venv/
+venv/
+ENV/
+env/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Python tooling
+.ipynb_checkpoints
+.mypy_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE / Editor junk
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# macOS system files
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Bytecode cache folders inside app
+app/__pycache__/
+
+# Uvicorn reload artifacts
+*.pid
+
+# -------------------------
+# OS / system
+# -------------------------
+Thumbs.db
+
+# -------------------------
+# ChatGPT-generated artifacts (optional)
+# -------------------------
+*.tmp
