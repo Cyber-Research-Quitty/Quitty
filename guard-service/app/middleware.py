@@ -10,6 +10,10 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 # strict base64url regex: only A–Z, a–z, 0–9, - and _
 BASE64URL_RE = re.compile(r"^[A-Za-z0-9\-_]*$")
 
+# Allowed algorithms according to your P3 component spec
+# We normalize to lowercase for comparison.
+ALLOWED_ALGORITHMS = {"ml-dsa-44", "rs256", "es256"}
+
 
 def _b64url_decode(segment: str) -> bytes:
     """
@@ -35,9 +39,9 @@ def _b64url_decode(segment: str) -> bytes:
 
 class JwtGuardMiddleware:
     """
-    P3 JWT Guard middleware – PHASE 2
+    P3 JWT Guard middleware – PHASE 2 + PHASE 3
 
-    What this does now:
+    PHASE 2 (already done):
       - Allow /health without any auth
       - For all other paths:
           * Require Authorization: Bearer <token>
@@ -49,6 +53,16 @@ class JwtGuardMiddleware:
           * scope["jwt_raw_token"]
           * scope["jwt_header"]
           * scope["jwt_payload"]
+
+    PHASE 3 (new now):
+      - Header rules:
+          * typ must be "JWT"
+          * alg must exist
+          * kid must exist
+      - Algorithm policy:
+          * block alg = "none"
+          * algorithm must be in allow-list:
+              { "ml-dsa-44", "RS256", "ES256" }
     """
 
     def __init__(self, app: ASGIApp) -> None:
@@ -154,6 +168,68 @@ class JwtGuardMiddleware:
             response = JSONResponse(
                 {"error": "malformed_token", "reason": "malformed_json"},
                 status_code=status.HTTP_400_BAD_REQUEST,
+            )
+            await response(scope, receive, send)
+            return
+
+        # --- Header rules & algorithm policy (PHASE 3) ---
+
+        # header must be a JSON object
+        if not isinstance(header, dict):
+            response = JSONResponse(
+                {"error": "malformed_token", "reason": "header_not_object"},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+            await response(scope, receive, send)
+            return
+
+        typ = header.get("typ")
+        alg = header.get("alg")
+        kid = header.get("kid")
+
+        # typ must be "JWT"
+        if typ != "JWT":
+            response = JSONResponse(
+                {"error": "malformed_token", "reason": "invalid_typ"},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+            await response(scope, receive, send)
+            return
+
+        # alg must exist and be a non-empty string
+        if not isinstance(alg, str) or not alg:
+            response = JSONResponse(
+                {"error": "malformed_token", "reason": "missing_alg"},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+            await response(scope, receive, send)
+            return
+
+        # kid must exist and be a non-empty string
+        if not isinstance(kid, str) or not kid:
+            response = JSONResponse(
+                {"error": "malformed_token", "reason": "missing_kid"},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+            await response(scope, receive, send)
+            return
+
+        alg_normalized = alg.lower()
+
+        # block alg:none explicitly
+        if alg_normalized == "none":
+            response = JSONResponse(
+                {"error": "invalid_token", "reason": "alg_none_not_allowed"},
+                status_code=status.HTTP_401_UNAUTHORIZED,
+            )
+            await response(scope, receive, send)
+            return
+
+        # enforce allow-list
+        if alg_normalized not in ALLOWED_ALGORITHMS:
+            response = JSONResponse(
+                {"error": "invalid_token", "reason": "unsupported_algorithm"},
+                status_code=status.HTTP_401_UNAUTHORIZED,
             )
             await response(scope, receive, send)
             return
