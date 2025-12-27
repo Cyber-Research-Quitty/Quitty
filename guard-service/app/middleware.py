@@ -7,11 +7,12 @@ from fastapi import status
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 
+from .jwks_client import JWKSFetchError, jwks_client
+
 # strict base64url regex: only A–Z, a–z, 0–9, - and _
 BASE64URL_RE = re.compile(r"^[A-Za-z0-9\-_]*$")
 
-# Allowed algorithms according to your P3 component spec
-# We normalize to lowercase for comparison.
+# Allowed algorithms according to your P3 component spec (case-insensitive)
 ALLOWED_ALGORITHMS = {"ml-dsa-44", "rs256", "es256"}
 
 
@@ -20,14 +21,12 @@ def _b64url_decode(segment: str) -> bytes:
     Strict base64url decoder:
       - only allows characters A–Z, a–z, 0–9, - and _
       - fixes missing padding
-      - raises ValueError on any invalid character or format
+      - raises ValueError on invalid characters or format
     """
     if not segment:
-        # empty segment is allowed here; caller decides if that's valid
         return b""
 
     if not BASE64URL_RE.fullmatch(segment):
-        # contains characters outside base64url alphabet
         raise ValueError("invalid base64url characters")
 
     padded = segment + "=" * (-len(segment) % 4)
@@ -39,49 +38,40 @@ def _b64url_decode(segment: str) -> bytes:
 
 class JwtGuardMiddleware:
     """
-    P3 JWT Guard middleware – PHASE 2 + PHASE 3
+    P3 JWT Guard middleware – PHASE 2 + PHASE 3 + PHASE 4
 
-    PHASE 2 (already done):
-      - Allow /health without any auth
-      - For all other paths:
-          * Require Authorization: Bearer <token>
-          * Basic JWT structural validation:
-              - 3 segments: header.payload.signature
-              - non-empty signature
-              - header & payload are valid base64url-encoded JSON
-      - Attaches:
-          * scope["jwt_raw_token"]
-          * scope["jwt_header"]
-          * scope["jwt_payload"]
+    Phase 2:
+      - Authorization: Bearer <token>
+      - Structural validation (3 segments, non-empty signature, base64url+json)
 
-    PHASE 3 (new now):
-      - Header rules:
-          * typ must be "JWT"
-          * alg must exist
-          * kid must exist
-      - Algorithm policy:
-          * block alg = "none"
-          * algorithm must be in allow-list:
-              { "ml-dsa-44", "RS256", "ES256" }
+    Phase 3:
+      - Header rules: typ="JWT", alg exists, kid exists
+      - Block alg="none"
+      - Allow-list alg: ml-dsa-44, RS256, ES256
+
+    Phase 4:
+      - Fetch JWKS key by kid from P2
+      - If kid not found -> 401 kid_not_found
+      - If jwk.alg exists and mismatches token alg -> 401 alg_confusion
+      - If JWKS unavailable -> 503 jwks_unavailable
     """
 
     def __init__(self, app: ASGIApp) -> None:
         self.app = app
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        # only guard HTTP requests
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
 
         path: str = scope.get("path", "")
 
-        # 1) let health-check pass without auth
+        # Allow /health without auth
         if path.startswith("/health"):
             await self.app(scope, receive, send)
             return
 
-        # 2) collect headers into a dict
+        # Build headers dict
         raw_headers = scope.get("headers") or []
         headers: Dict[str, str] = {
             key.decode("latin1").lower(): value.decode("latin1")
@@ -90,8 +80,7 @@ class JwtGuardMiddleware:
 
         auth_header = headers.get("authorization")
 
-        # --- Authorization header rules (PHASE 2 part 1) ---
-
+        # ---------------- PHASE 2: Authorization ----------------
         if not auth_header:
             response = JSONResponse(
                 {"error": "invalid_token", "reason": "missing_authorization_header"},
@@ -108,8 +97,7 @@ class JwtGuardMiddleware:
             await response(scope, receive, send)
             return
 
-        token = auth_header[7:].strip()  # strip off "Bearer "
-
+        token = auth_header[7:].strip()
         if not token:
             response = JSONResponse(
                 {"error": "invalid_token", "reason": "empty_bearer_token"},
@@ -118,19 +106,13 @@ class JwtGuardMiddleware:
             await response(scope, receive, send)
             return
 
-        # store raw token for later phases
         scope["jwt_raw_token"] = token
 
-        # --- JWT structural validation (PHASE 2 part 2) ---
-
-        # 3) structural check: 3 segments
+        # ---------------- PHASE 2: Structural validation ----------------
         parts = token.split(".")
         if len(parts) != 3:
             response = JSONResponse(
-                {
-                    "error": "malformed_token",
-                    "reason": "invalid_segment_count",
-                },
+                {"error": "malformed_token", "reason": "invalid_segment_count"},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
             await response(scope, receive, send)
@@ -138,7 +120,6 @@ class JwtGuardMiddleware:
 
         header_b64, payload_b64, signature_b64 = parts
 
-        # non-empty signature
         if not signature_b64:
             response = JSONResponse(
                 {"error": "malformed_token", "reason": "empty_signature"},
@@ -147,12 +128,10 @@ class JwtGuardMiddleware:
             await response(scope, receive, send)
             return
 
-        # 4) base64url decode header & payload
         try:
             header_bytes = _b64url_decode(header_b64)
             payload_bytes = _b64url_decode(payload_b64)
         except ValueError:
-            # base64url decoding itself failed
             response = JSONResponse(
                 {"error": "malformed_token", "reason": "malformed_base64"},
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -160,7 +139,6 @@ class JwtGuardMiddleware:
             await response(scope, receive, send)
             return
 
-        # 5) parse JSON (and handle bad UTF-8)
         try:
             header = json.loads(header_bytes.decode("utf-8"))
             payload = json.loads(payload_bytes.decode("utf-8"))
@@ -172,9 +150,7 @@ class JwtGuardMiddleware:
             await response(scope, receive, send)
             return
 
-        # --- Header rules & algorithm policy (PHASE 3) ---
-
-        # header must be a JSON object
+        # ---------------- PHASE 3: Header rules + allow-list ----------------
         if not isinstance(header, dict):
             response = JSONResponse(
                 {"error": "malformed_token", "reason": "header_not_object"},
@@ -187,7 +163,6 @@ class JwtGuardMiddleware:
         alg = header.get("alg")
         kid = header.get("kid")
 
-        # typ must be "JWT"
         if typ != "JWT":
             response = JSONResponse(
                 {"error": "malformed_token", "reason": "invalid_typ"},
@@ -196,7 +171,6 @@ class JwtGuardMiddleware:
             await response(scope, receive, send)
             return
 
-        # alg must exist and be a non-empty string
         if not isinstance(alg, str) or not alg:
             response = JSONResponse(
                 {"error": "malformed_token", "reason": "missing_alg"},
@@ -205,7 +179,6 @@ class JwtGuardMiddleware:
             await response(scope, receive, send)
             return
 
-        # kid must exist and be a non-empty string
         if not isinstance(kid, str) or not kid:
             response = JSONResponse(
                 {"error": "malformed_token", "reason": "missing_kid"},
@@ -214,10 +187,9 @@ class JwtGuardMiddleware:
             await response(scope, receive, send)
             return
 
-        alg_normalized = alg.lower()
+        alg_norm = alg.lower()
 
-        # block alg:none explicitly
-        if alg_normalized == "none":
+        if alg_norm == "none":
             response = JSONResponse(
                 {"error": "invalid_token", "reason": "alg_none_not_allowed"},
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -225,8 +197,7 @@ class JwtGuardMiddleware:
             await response(scope, receive, send)
             return
 
-        # enforce allow-list
-        if alg_normalized not in ALLOWED_ALGORITHMS:
+        if alg_norm not in ALLOWED_ALGORITHMS:
             response = JSONResponse(
                 {"error": "invalid_token", "reason": "unsupported_algorithm"},
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -234,9 +205,39 @@ class JwtGuardMiddleware:
             await response(scope, receive, send)
             return
 
-        # attach parsed parts to scope for later phases
+        # ---------------- PHASE 4: Fetch JWKS key by kid (P2) ----------------
+        try:
+            jwk = await jwks_client.get_key_by_kid(kid)
+        except JWKSFetchError:
+            response = JSONResponse(
+                {"error": "service_unavailable", "reason": "jwks_unavailable"},
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+            await response(scope, receive, send)
+            return
+
+        if jwk is None:
+            response = JSONResponse(
+                {"error": "invalid_token", "reason": "kid_not_found"},
+                status_code=status.HTTP_401_UNAUTHORIZED,
+            )
+            await response(scope, receive, send)
+            return
+
+        # Alg confusion protection (only if JWKS key provides alg)
+        jwk_alg = jwk.get("alg")
+        if isinstance(jwk_alg, str) and jwk_alg:
+            if jwk_alg.lower() != alg_norm:
+                response = JSONResponse(
+                    {"error": "invalid_token", "reason": "alg_confusion"},
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                )
+                await response(scope, receive, send)
+                return
+
+        # Attach for later phases (P1 verify + P4 revoke)
         scope["jwt_header"] = header
         scope["jwt_payload"] = payload
+        scope["jwk"] = jwk
 
-        # continue to the next app (your FastAPI app / downstream service)
         await self.app(scope, receive, send)
