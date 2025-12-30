@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ejwks
+  namespace: quitty
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ejwks
+  template:
+    metadata:
+      labels:
+        app: ejwks
+    spec:
+      containers:
+        - name: ejwks
+          image: YOUR_IMAGE:TAG
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: ejwks-config
+          volumeMounts:
+            - name: ejwks-data
+              mountPath: /data
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 20
+      volumes:
+        - name: ejwks-data
+          persistentVolumeClaim:
+            claimName: ejwks-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ejwks
+  namespace: quitty
+spec:
+  selector:
+    app: ejwks
+  ports:
+    - port: 8000
+      targetPort: 8000
+  type: ClusterIP

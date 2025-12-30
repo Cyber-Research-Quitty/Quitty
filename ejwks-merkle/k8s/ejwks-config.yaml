@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ejwks-config
+  namespace: quitty
+data:
+  # Use redis service name inside cluster
+  REDIS_URL: "redis://redis:6379/0"
+
+  # Keep ed25519 for easy demo (Windows friendly)
+  ROOT_SIGNER: "ed25519"
+
+  # Persist DB + signer key in mounted /data
+  APP_DB_PATH: "/data/keys.db"
+  ROOT_SIGNER_KEY_PATH: "/data/root_signer_key.json"
+
+  # Bloom settings
+  BLOOM_BITS: "1048576"
+  BLOOM_HASHES: "7"

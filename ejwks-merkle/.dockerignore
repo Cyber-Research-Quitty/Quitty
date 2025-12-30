@@ -1,0 +1,12 @@
+.venv
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+keys.db
+root_signer_key.json
+data/
+.DS_Store
+.git
+.gitignore
