@@ -6,7 +6,6 @@ from .config import SIGNER_BASE_URL, SIGNER_VERIFY_PATHS, SIGNER_TIMEOUT_SECONDS
 
 
 class SignerVerifyError(Exception):
-    """Raised when P1 verify cannot be reached or response is invalid."""
     pass
 
 
@@ -18,24 +17,20 @@ class SignerClient:
         )
 
     async def verify(self, token: str) -> Dict[str, Any]:
-        """
-        Calls P1 verify endpoint.
-        Expected response:
-          { "valid": true }  OR  { "valid": false, "reason": "signature_invalid" }
-        """
         last_error: Optional[Exception] = None
 
         for path in SIGNER_VERIFY_PATHS:
             url = SIGNER_BASE_URL.rstrip("/") + path
             try:
                 resp = await self._client.post(url, json={"token": token})
+
                 if resp.status_code != 200:
                     last_error = RuntimeError(f"P1 verify HTTP {resp.status_code} from {url}")
                     continue
 
                 data = resp.json()
                 if not isinstance(data, dict) or "valid" not in data:
-                    raise SignerVerifyError(f"P1 verify bad response shape from {url}: {data}")
+                    raise SignerVerifyError(f"Bad P1 response shape from {url}: {data}")
 
                 return data
 
