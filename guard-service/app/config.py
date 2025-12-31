@@ -34,3 +34,14 @@ SIGNER_VERIFY_PATHS = _split_csv(
 )
 
 SIGNER_TIMEOUT_SECONDS = float(os.getenv("SIGNER_TIMEOUT_SECONDS", "3"))
+
+# ----------------------
+# Phase 6 (Claims) configuration
+# ----------------------
+
+CLOCK_SKEW_SECONDS = int(os.getenv("CLOCK_SKEW_SECONDS", "30"))  # leeway for iat/nbf/exp
+
+EXPECTED_ISS = os.getenv("EXPECTED_ISS", "")  # empty = don't enforce
+EXPECTED_AUD = os.getenv("EXPECTED_AUD", "")  # empty = don't enforce
+
+MAX_TOKEN_AGE_SECONDS = int(os.getenv("MAX_TOKEN_AGE_SECONDS", "0"))  # 0 = don't enforce
