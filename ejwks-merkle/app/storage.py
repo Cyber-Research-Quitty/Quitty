@@ -115,7 +115,39 @@ class KeyStore:
         with self._conn() as c:
             return c.execute("SELECT * FROM checkpoints ORDER BY idx DESC LIMIT 1").fetchone()
 
+    def _verify_checkpoint_chain(self) -> bool:
+        """Verify the integrity of the checkpoint chain"""
+        with self._conn() as c:
+            rows = c.execute("SELECT * FROM checkpoints ORDER BY idx ASC").fetchall()
+            if not rows:
+                return True
+            
+            prev_entry_hash = b64url_encode(sha256(b"GENESIS"))
+            for i, row in enumerate(rows):
+                expected_prev_hash = prev_entry_hash
+                actual_prev_hash = row["prev_hash"]
+                
+                if actual_prev_hash != expected_prev_hash:
+                    raise ValueError(f"Checkpoint chain broken at idx {row['idx']}: expected prev_hash {expected_prev_hash}, got {actual_prev_hash}")
+                
+                # Verify entry_hash computation
+                entry_obj = {
+                    "epoch": int(row["epoch"]),
+                    "jwks_root_hash": row["jwks_root_hash"],
+                    "prev_hash": row["prev_hash"],
+                }
+                computed_entry_hash = b64url_encode(sha256(canonical_json(entry_obj)))
+                if computed_entry_hash != row["entry_hash"]:
+                    raise ValueError(f"Checkpoint entry_hash mismatch at idx {row['idx']}")
+                
+                prev_entry_hash = row["entry_hash"]
+            
+            return True
+
     def append_checkpoint(self, epoch: int, jwks_root_hash: str) -> Checkpoint:
+        # Verify chain integrity before appending
+        self._verify_checkpoint_chain()
+        
         now = int(time.time())
         last = self._latest_checkpoint_row()
         prev_hash = last["entry_hash"] if last else b64url_encode(sha256(b"GENESIS"))

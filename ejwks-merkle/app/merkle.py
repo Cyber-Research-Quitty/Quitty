@@ -5,11 +5,13 @@ from .utils import sha256, b64url_encode, b64url_decode, canonical_json
 
 def leaf_hash(jwk: Dict[str, Any]) -> bytes:
     # MUST stay stable across server & client.
+    # Domain separation: prefix with 0x00 for leaf nodes
     jwk_public = {k: v for k, v in jwk.items() if k != "d"}
-    return sha256(canonical_json(jwk_public))
+    return sha256(b"\x00" + canonical_json(jwk_public))
 
 def parent_hash(left: bytes, right: bytes) -> bytes:
-    return sha256(left + right)
+    # Domain separation: prefix with 0x01 for parent nodes to prevent second preimage attacks
+    return sha256(b"\x01" + left + right)
 
 @dataclass
 class MerkleProofItem:
@@ -28,7 +30,7 @@ class MerkleTree:
         leaves = [leaf_hash(id_to_jwk[_id]) for _id in leaf_ids]
 
         if not leaves:
-            levels = [[sha256(b"")]]  # empty-tree root
+            levels = [[sha256(b"\x00")]]  # empty-tree root with domain separation
             return cls(leaf_ids=[], levels=levels, leaf_index={})
 
         levels: List[List[bytes]] = [leaves]
@@ -38,9 +40,15 @@ class MerkleTree:
             i = 0
             while i < len(cur):
                 left = cur[i]
-                right = cur[i + 1] if i + 1 < len(cur) else cur[i]  # duplicate last if odd
+                # For odd number of nodes, use a special placeholder instead of duplication
+                if i + 1 < len(cur):
+                    right = cur[i + 1]
+                    i += 2
+                else:
+                    # Odd node: hash with itself but with domain separation
+                    right = left
+                    i += 1
                 nxt.append(parent_hash(left, right))
-                i += 2
             levels.append(nxt)
             cur = nxt
 

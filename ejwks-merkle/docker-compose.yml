@@ -3,5 +3,37 @@ services:
     image: redis:7-alpine
     ports:
       - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
-# To Run -- > docker compose up -d
+  ejwks-api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - APP_DB_PATH=/data/keys.db
+      - ROOT_SIGNER=ed25519
+      - ROOT_SIGNER_KEY_PATH=/data/root_signer_key.json
+      - LOG_SIGNER=ed25519
+      - LOG_SIGNER_KEY_PATH=/data/log_signer_key.json
+      - BLOOM_BITS=1048576
+      - BLOOM_HASHES=7
+    volumes:
+      - ./data:/data
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  redis-data:
+
+# To Run: docker compose up -d
+# To View Logs: docker compose logs -f ejwks-api
+# To Stop: docker compose down
