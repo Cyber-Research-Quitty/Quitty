@@ -10,6 +10,8 @@ from .config import settings
 from .jose_utils import encode_header, encode_payload, b64url_encode
 from .keystore import keystore
 from .crypto_ed25519 import Ed25519Backend
+from .metrics import SIGN_LATENCY_SECONDS, P1_ERRORS_TOTAL  # ✅ added
+
 
 router = APIRouter(prefix="/sign", tags=["sign"])
 
@@ -65,9 +67,15 @@ def sign_token(body: SignRequest) -> SignResponse:
 
     signing_input = f"{encoded_header}.{encoded_payload}".encode("ascii")
 
-    # 3) Sign
+    # 3) Sign (with Prometheus timing)
     t0 = time.perf_counter()
-    signature = backend.sign(kp.alg, kp.private_key, signing_input)
+    try:
+        signature = backend.sign(kp.alg, kp.private_key, signing_input)
+        SIGN_LATENCY_SECONDS.observe(time.perf_counter() - t0)
+    except Exception:
+        P1_ERRORS_TOTAL.labels(type="sign_error").inc()
+        raise
+
     dt_ms = (time.perf_counter() - t0) * 1000.0
 
     encoded_sig = b64url_encode(signature)
