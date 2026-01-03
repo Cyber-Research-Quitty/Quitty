@@ -4,6 +4,7 @@ import hashlib
 from typing import Tuple, Optional
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import x25519
+from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.backends import default_backend
 import base64
@@ -38,8 +39,15 @@ class KyberKeyExchange:
         public_key = private_key.public_key()
         
         # Serialize keys
-        private_bytes = private_key.private_bytes_raw()
-        public_bytes = public_key.public_bytes_raw()
+        private_bytes = private_key.private_bytes(
+            encoding=serialization.Encoding.Raw,
+            format=serialization.PrivateFormat.Raw,
+            encryption_algorithm=serialization.NoEncryption()
+        )
+        public_bytes = public_key.public_bytes(
+            encoding=serialization.Encoding.Raw,
+            format=serialization.PublicFormat.Raw
+        )
         
         return private_bytes, public_bytes
     
@@ -49,20 +57,14 @@ class KyberKeyExchange:
         Derive shared secret using Kyber-like key exchange.
         
         Args:
-            private_key: Our private key (32 bytes)
-            peer_public_key: Peer's public key (32 bytes)
+            private_key: Our private key
+            peer_public_key: Peer's public key
         
         Returns:
             Shared secret bytes
         """
         try:
-            # Reconstruct keys - X25519 keys are 32 bytes
-            # from_private_bytes and from_public_bytes take raw bytes directly
-            if len(private_key) != 32:
-                raise ValueError(f"Invalid private key length: {len(private_key)}, expected 32")
-            if len(peer_public_key) != 32:
-                raise ValueError(f"Invalid public key length: {len(peer_public_key)}, expected 32")
-            
+            # Reconstruct keys
             private = x25519.X25519PrivateKey.from_private_bytes(private_key)
             public = x25519.X25519PublicKey.from_public_bytes(peer_public_key)
             

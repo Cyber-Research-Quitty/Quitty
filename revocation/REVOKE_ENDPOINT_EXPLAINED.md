@@ -383,10 +383,10 @@ async def clear_revocation():
     await rds.delete("revoked:sub:user123")
 ```
 
-### Option 2: Use the Clear Script
+### Option 2: Use Redis CLI
 ```bash
-python clear_revocation.py --subject user123
-python clear_revocation.py --jti token-id
+redis-cli DEL "revoked:jti:token-id"
+redis-cli DEL "revoked:sub:user123"
 ```
 
 ### Option 3: Wait for TTL (if temporary revocation)
@@ -501,8 +501,17 @@ Response:
 ```
 
 ### Step 5: Clear Revocation (if needed)
-```bash
-python clear_revocation.py --jti abc-123-def
+```python
+# Using Python
+import redis.asyncio as redis
+
+async def clear():
+    rds = redis.from_url("redis://localhost:6379/0")
+    await rds.delete("revoked:jti:abc-123-def")
+    await rds.close()
+
+# Or using Redis CLI:
+# redis-cli DEL "revoked:jti:abc-123-def"
 ```
 
 ### Step 6: Validate Token Again (Should be valid now)
@@ -540,8 +549,7 @@ Response:
 - ❌ Does NOT undo revocations
 
 ### To Undo a Revocation:
-- Use `clear_revocation.py` script
-- Delete Redis key manually
+- Delete Redis key manually using Python code or Redis CLI
 - Wait for TTL expiration (if temporary)
 
 ---
@@ -549,5 +557,4 @@ Response:
 For more information, see:
 - `API_ENDPOINTS_GUIDE.md` - Complete API documentation
 - `IMPLEMENTATION_GUIDE.md` - Setup and usage guide
-- `clear_revocation.py` - Script to clear revocations
 

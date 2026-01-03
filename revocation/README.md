@@ -60,22 +60,27 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 ### 4. Start the Kafka Consumer (in another terminal)
 ```bash
-python -m consumer.consumer
+# Run from project root directory
+cd /path/to/revocation
+python -m consumer
 ```
 
 ### 5. Test the API
 ```bash
-# Run test script
-python test_api.py
-
-# Or visit http://localhost:8000/docs for interactive API documentation
+# Visit http://localhost:8000/docs for interactive API documentation
 ```
 
-## Detailed Implementation Guide
+## Documentation
 
-See [IMPLEMENTATION_GUIDE.md](IMPLEMENTATION_GUIDE.md) for:
-- Complete setup instructions
-- API usage examples
-- Client implementation examples
-- Troubleshooting guide
-- Production considerations
+- **[COMPLETE_IMPLEMENTATION_GUIDE.md](COMPLETE_IMPLEMENTATION_GUIDE.md)** - **⭐ Start here!** Comprehensive guide covering:
+  - Complete setup from scratch
+  - Architecture overview
+  - Full API reference with examples
+  - Client integration examples (Python, JavaScript)
+  - Deployment guide (Docker, Production)
+  - Troubleshooting guide
+  - Security best practices
+  
+- **[IMPLEMENTATION_GUIDE.md](IMPLEMENTATION_GUIDE.md)** - Quick setup and usage guide
+- **[API_ENDPOINTS_GUIDE.md](API_ENDPOINTS_GUIDE.md)** - Detailed endpoint documentation
+- **[REVOKE_ENDPOINT_EXPLAINED.md](REVOKE_ENDPOINT_EXPLAINED.md)** - Revocation endpoint deep dive

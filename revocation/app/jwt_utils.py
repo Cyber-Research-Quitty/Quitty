@@ -185,23 +185,36 @@ async def validate_token(
     Raises:
         HTTPException: If token is invalid, expired, or revoked
     """
-    # Decode and validate token (signature, expiration, issuer)
-    payload = decode_token(token)
-    
-    # Check revocation status if enabled
+    # First, decode without validation to check revocation (even for expired tokens)
+    # This ensures revocation takes precedence over expiration
+    claims_for_revocation_check = None
     if check_revocation:
-        is_revoked, reason = await is_token_revoked(payload, redis_client)
-        if is_revoked:
-            if reason == "sub":
-                detail = "Token has been revoked (all tokens for this subject are revoked)"
-            elif reason == "kid":
-                detail = "Token has been revoked (all tokens for this key are revoked)"
-            else:
-                detail = "Token has been revoked"
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail=detail
-            )
+        try:
+            # Decode without verification to get claims for revocation check
+            claims_for_revocation_check = jwt.decode(token, options={"verify_signature": False})
+            
+            # Check revocation status before expiration check
+            is_revoked, reason = await is_token_revoked(claims_for_revocation_check, redis_client)
+            if is_revoked:
+                if reason == "sub":
+                    detail = "Token has been revoked (all tokens for this subject are revoked)"
+                elif reason == "kid":
+                    detail = "Token has been revoked (all tokens for this key are revoked)"
+                else:
+                    detail = "Token has been revoked"
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail=detail
+                )
+        except HTTPException:
+            # Re-raise revocation-related exceptions
+            raise
+        except Exception:
+            # If we can't decode even for revocation check, continue to full validation
+            pass
+    
+    # Now decode and validate token (signature, expiration, issuer)
+    payload = decode_token(token)
     
     return payload
 

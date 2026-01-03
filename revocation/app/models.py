@@ -73,4 +73,3 @@ class RefreshTokenRefreshResponse(BaseModel):
     server_public_key: str = Field(..., description="Server's Kyber public key")
     encrypted_session_key: str = Field(..., description="Encrypted session key for forward secrecy")
     access_jti: str
-    message: str = Field(default="Token refreshed successfully with Kyber forward secrecy key exchange", description="Success message")

@@ -44,20 +44,6 @@ rds: Optional[redis.Redis] = None
 producer = None
 
 
-# -------------------------
-# Models (kept inside main.py to avoid import confusion)
-# -------------------------
-class RevokeRequest(BaseModel):
-    type: str = Field(..., pattern=r"^(revoke_jti|revoke_sub|revoke_kid)$")
-    value: str = Field(..., min_length=1, max_length=512)
-    ttl_seconds: Optional[int] = Field(None, ge=30, le=60 * 60 * 24 * 30)
-
-
-class RevokeResponse(BaseModel):
-    event_id: str
-    published: bool
-
-
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -222,6 +208,7 @@ async def validate_token_endpoint(req: TokenValidateRequest):
                 is_revoked, revocation_reason = await is_token_revoked(claims, rds)
             
             # Determine the actual reason for failure
+            # If validate_token raised a revocation exception, use that message
             error_message = e.detail
             
             # Check if token is expired by examining exp claim
@@ -230,22 +217,29 @@ async def validate_token_endpoint(req: TokenValidateRequest):
             if exp_claim:
                 current_time = int(datetime.now(timezone.utc).timestamp())
                 is_expired = exp_claim < current_time
-                if is_expired:
-                    time_expired = current_time - exp_claim
-                    error_message = f"Token has expired ({time_expired} seconds ago)"
             
-            if is_expired and is_revoked:
-                if revocation_reason == "sub":
-                    error_message = f"Token has expired and been revoked (all tokens for this subject are revoked)"
-                else:
-                    error_message = "Token has expired and been revoked"
-            elif is_revoked and not is_expired:
-                if revocation_reason == "sub":
-                    error_message = "Token has been revoked (all tokens for this subject are revoked)"
-                elif revocation_reason == "kid":
-                    error_message = "Token has been revoked (all tokens for this key are revoked)"
-                else:
-                    error_message = "Token has been revoked"
+            # Prioritize revocation message if token is revoked
+            # (validate_token now checks revocation first, so this should already be set)
+            if is_revoked:
+                if "revoked" not in error_message.lower():
+                    # Revocation wasn't detected in validate_token, set it now
+                    if revocation_reason == "sub":
+                        error_message = "Token has been revoked (all tokens for this subject are revoked)"
+                    elif revocation_reason == "kid":
+                        error_message = "Token has been revoked (all tokens for this key are revoked)"
+                    else:
+                        error_message = "Token has been revoked"
+                    
+                    # If also expired, mention both
+                    if is_expired:
+                        if revocation_reason == "sub":
+                            error_message = "Token has expired and been revoked (all tokens for this subject are revoked)"
+                        else:
+                            error_message = "Token has expired and been revoked"
+            elif is_expired:
+                # Only expired, not revoked
+                time_expired = int(datetime.now(timezone.utc).timestamp()) - exp_claim
+                error_message = f"Token has expired ({time_expired} seconds ago)"
             
             return TokenValidateResponse(
                 valid=False,
@@ -498,8 +492,7 @@ async def refresh_token_endpoint(req: RefreshTokenRefreshRequest):
         expires_in=expires_in,
         server_public_key=server_public_key,
         encrypted_session_key=encrypted_session_key,
-        access_jti=access_jti,
-        message="Token refreshed successfully. Kyber forward secrecy key exchange completed. Use the server_public_key and encrypted_session_key for secure communication."
+        access_jti=access_jti
     )
 
 
