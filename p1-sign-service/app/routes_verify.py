@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from .jose_utils import split_jws, decode_segment, b64url_decode
 from .keystore import keystore
 from .crypto_ed25519 import Ed25519Backend
+from .metrics import VERIFY_LATENCY_SECONDS, P1_ERRORS_TOTAL  # ✅ added
 
 router = APIRouter(prefix="/verify", tags=["verify"])
 
@@ -52,10 +53,15 @@ def verify_token(body: VerifyRequest) -> VerifyResponse:
 
     signing_input = f"{h_seg}.{p_seg}".encode("ascii")
 
-    # 3) Verify
+    # 3) Verify (with Prometheus timing)
     t0 = time.perf_counter()
-    ok = backend.verify(kp.alg, kp.public_key, signing_input, signature)
-    dt_ms = (time.perf_counter() - t0) * 1000.0
+    try:
+        ok = backend.verify(kp.alg, kp.public_key, signing_input, signature)
+        VERIFY_LATENCY_SECONDS.observe(time.perf_counter() - t0)
+        dt_ms = (time.perf_counter() - t0) * 1000.0
+    except Exception:
+        P1_ERRORS_TOTAL.labels(type="verify_error").inc()
+        return VerifyResponse(valid=False, alg=alg, kid=kid, error="verify_exception")
 
     if not ok:
         return VerifyResponse(
