@@ -18,9 +18,9 @@ services:
     environment:
       - REDIS_URL=redis://redis:6379/0
       - APP_DB_PATH=/data/keys.db
-      - ROOT_SIGNER=ed25519
+      - ROOT_SIGNER=dilithium2
       - ROOT_SIGNER_KEY_PATH=/data/root_signer_key.json
-      - LOG_SIGNER=ed25519
+      - LOG_SIGNER=dilithium2
       - LOG_SIGNER_KEY_PATH=/data/log_signer_key.json
       - BLOOM_BITS=1048576
       - BLOOM_HASHES=7

@@ -63,6 +63,7 @@ class Ed25519RootSigner(RootSigner):
 class Dilithium2RootSigner(RootSigner):
     """
     Optional: requires python-oqs.
+    Uses ML-DSA-44 (formerly known as Dilithium2) - NIST Post-Quantum Standard
     """
     def __init__(self, kid: str, priv_b64: str, pub_b64: str) -> None:
         self._kid = kid
@@ -72,16 +73,17 @@ class Dilithium2RootSigner(RootSigner):
     @staticmethod
     def generate(kid: str = "root-dilithium2") -> "Dilithium2RootSigner":
         import oqs  # type: ignore
-        with oqs.Signature("Dilithium2") as sig:
+        # Use ML-DSA-44 (the NIST standard name for Dilithium2 in liboqs 0.15+)
+        with oqs.Signature("ML-DSA-44") as sig:
             pub = sig.generate_keypair()
             priv = sig.export_secret_key()
         return Dilithium2RootSigner(kid=kid, priv_b64=b64url_encode(priv), pub_b64=b64url_encode(pub))
 
     def sign(self, msg: bytes) -> bytes:
         import oqs  # type: ignore
-        with oqs.Signature("Dilithium2") as sig:
-            sig.import_secret_key(b64url_decode(self._priv_b64))
-            return sig.sign(msg)
+        # Create signature object with the secret key
+        sig = oqs.Signature("ML-DSA-44", secret_key=b64url_decode(self._priv_b64))
+        return sig.sign(msg)
 
     def info(self) -> RootSignerInfo:
         return RootSignerInfo(alg="dilithium2", public_key=self._pub_b64, kid=self._kid)
@@ -164,7 +166,8 @@ def verify_root_bundle(bundle: Dict[str, Any]) -> bool:
             import oqs  # type: ignore
         except Exception:
             return False
-        with oqs.Signature("Dilithium2") as s:
+        # Use ML-DSA-44 (the NIST standard name for Dilithium2 in liboqs 0.15+)
+        with oqs.Signature("ML-DSA-44") as s:
             return s.verify(msg, signature, b64url_decode(sig_pub))
 
     return False
@@ -195,7 +198,8 @@ def verify_root_bundle_pinned(bundle: Dict[str, Any], pinned_pub_b64: str) -> bo
             import oqs  # type: ignore
         except Exception:
             return False
-        with oqs.Signature("Dilithium2") as s:
+        # Use ML-DSA-44 (the NIST standard name for Dilithium2 in liboqs 0.15+)
+        with oqs.Signature("ML-DSA-44") as s:
             return s.verify(msg, signature, b64url_decode(pinned_pub_b64))
 
     return False
