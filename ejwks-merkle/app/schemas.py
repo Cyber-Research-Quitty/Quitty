@@ -1,5 +1,5 @@
 from __future__ import annotations
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from typing import Optional, List, Dict, Any, Literal
 
 class JWKIn(BaseModel):
@@ -19,6 +19,24 @@ class JWKIn(BaseModel):
     key_ops: Optional[List[str]] = None
 
     model_config = {"extra": "allow"}
+
+    @field_validator('kid')
+    @classmethod
+    def validate_kid(cls, v: str) -> str:
+        if not v or len(v) > 256:
+            raise ValueError('kid must be between 1 and 256 characters')
+        # Basic validation - alphanumeric, dash, underscore, dot
+        if not all(c.isalnum() or c in '-_.' for c in v):
+            raise ValueError('kid must contain only alphanumeric characters, dashes, underscores, or dots')
+        return v
+
+    @field_validator('kty')
+    @classmethod
+    def validate_kty(cls, v: str) -> str:
+        valid_ktys = ['OKP', 'RSA', 'EC', 'oct']
+        if v not in valid_ktys:
+            raise ValueError(f'kty must be one of {valid_ktys}')
+        return v
 
 class ImportKeyOut(BaseModel):
     kid: str

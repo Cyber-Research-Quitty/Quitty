@@ -5,7 +5,8 @@ from typing import List
 from .utils import sha256, b64url_encode, b64url_decode
 
 def parent_hash(left: bytes, right: bytes) -> bytes:
-    return sha256(left + right)
+    # Domain separation: prefix with 0x01 for parent nodes
+    return sha256(b"\x01" + left + right)
 
 @dataclass
 class ProofItem:
@@ -20,7 +21,7 @@ class LogMerkleTree:
     def build_from_entry_hashes(cls, entry_hashes_b64: List[str]) -> "LogMerkleTree":
         leaves = [b64url_decode(h) for h in entry_hashes_b64]
         if not leaves:
-            return cls(levels=[[sha256(b"")]])
+            return cls(levels=[[sha256(b"\x00")]])
 
         levels: List[List[bytes]] = [leaves]
         cur = leaves
@@ -29,9 +30,13 @@ class LogMerkleTree:
             i = 0
             while i < len(cur):
                 left = cur[i]
-                right = cur[i + 1] if i + 1 < len(cur) else cur[i]
+                if i + 1 < len(cur):
+                    right = cur[i + 1]
+                    i += 2
+                else:
+                    right = cur[i]
+                    i += 1
                 nxt.append(parent_hash(left, right))
-                i += 2
             levels.append(nxt)
             cur = nxt
         return cls(levels=levels)

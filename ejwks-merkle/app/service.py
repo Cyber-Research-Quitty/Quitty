@@ -39,11 +39,14 @@ class EJWKSService:
         jwks_root_b64 = tree.root_b64()
         epoch = int(time.time())
 
-        # Rebuild bloom
-        self.bloom = BloomFilter(m_bits=self._bloom_bits, k_hashes=self._bloom_hashes)
+        # Build new bloom filter before swapping (atomic operation)
+        new_bloom = BloomFilter(m_bits=self._bloom_bits, k_hashes=self._bloom_hashes)
         for rec in keys:
-            self.bloom.add(rec.kid)
-            self.bloom.add(rec.jkt)
+            new_bloom.add(rec.kid)
+            new_bloom.add(rec.jkt)
+        
+        # Atomically swap bloom filter
+        self.bloom = new_bloom
 
         # Sign JWKS root
         jwks_bundle = sign_root_bundle(self.root_signer, root_b64=jwks_root_b64, epoch=epoch)
@@ -55,6 +58,7 @@ class EJWKSService:
             proof_items = [item.__dict__ for item in tree.proof_for_id(rec.kid)]
             pipe.set(f"key:kid:{rec.kid}", json.dumps(rec.jwk), ex=24 * 3600)
             pipe.set(f"proof:kid:{rec.kid}", json.dumps(proof_items), ex=24 * 3600)
+            pipe.set(f"jkt:kid:{rec.kid}", rec.jkt, ex=24 * 3600)
             pipe.set(f"kid_by_jkt:{rec.jkt}", rec.kid, ex=24 * 3600)
         pipe.execute()
 
@@ -99,7 +103,7 @@ class EJWKSService:
         return json.loads(raw) if raw else None
 
     # ---------------- Key+Proof ----------------
-    def get_key_and_proof_by_kid(self, kid: str) -> Optional[Tuple[Dict[str, Any], List[Dict[str, str]]]]:
+    def get_key_and_proof_by_kid(self, kid: str) -> Optional[Tuple[Dict[str, Any], List[Dict[str, str]], str]]:
         if kid not in self.bloom:
             self.redis.set(f"neg:kid:{kid}", "1", ex=60)
             return None
@@ -108,19 +112,25 @@ class EJWKSService:
 
         raw_key = self.redis.get(f"key:kid:{kid}")
         raw_proof = self.redis.get(f"proof:kid:{kid}")
-        if raw_key and raw_proof:
-            return json.loads(raw_key), json.loads(raw_proof)
+        raw_jkt = self.redis.get(f"jkt:kid:{kid}")
+        
+        if raw_key and raw_proof and raw_jkt:
+            jkt = raw_jkt.decode("utf-8") if isinstance(raw_jkt, bytes) else raw_jkt
+            return json.loads(raw_key), json.loads(raw_proof), jkt
 
         self.rebuild_tree()
         raw_key = self.redis.get(f"key:kid:{kid}")
         raw_proof = self.redis.get(f"proof:kid:{kid}")
-        if raw_key and raw_proof:
-            return json.loads(raw_key), json.loads(raw_proof)
+        raw_jkt = self.redis.get(f"jkt:kid:{kid}")
+        
+        if raw_key and raw_proof and raw_jkt:
+            jkt = raw_jkt.decode("utf-8") if isinstance(raw_jkt, bytes) else raw_jkt
+            return json.loads(raw_key), json.loads(raw_proof), jkt
 
         self.redis.set(f"neg:kid:{kid}", "1", ex=60)
         return None
 
-    def get_key_and_proof_by_jkt(self, jkt: str) -> Optional[Tuple[Dict[str, Any], List[Dict[str, str]]]]:
+    def get_key_and_proof_by_jkt(self, jkt: str) -> Optional[Tuple[Dict[str, Any], List[Dict[str, str]], str]]:
         if jkt not in self.bloom:
             self.redis.set(f"neg:jkt:{jkt}", "1", ex=60)
             return None

@@ -18,3 +18,6 @@ env/
 # OS junk
 .DS_Store
 Thumbs.db
+
+# P1 keystore (contains private keys) - NEVER COMMIT
+p1-sign-service/data/p1-keystore.json
