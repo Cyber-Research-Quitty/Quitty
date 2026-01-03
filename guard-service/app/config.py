@@ -7,6 +7,14 @@ load_dotenv()  # loads guard-service/.env if present
 def _split_csv(value: str) -> list[str]:
     return [p.strip() for p in value.split(",") if p.strip()]
 
+# ----------------------
+# P4 (Revocation) configuration
+# ----------------------
+
+REVOCATION_BASE_URL = os.getenv("REVOCATION_BASE_URL", "http://127.0.0.1:8003")
+REVOCATION_CHECK_PATHS = _split_csv(os.getenv("REVOCATION_CHECK_PATHS", "/v1/revocations"))
+REVOCATION_TIMEOUT_SECONDS = float(os.getenv("REVOCATION_TIMEOUT_SECONDS", "3"))
+
 
 # ----------------------
 # P2 (JWKS) configuration
