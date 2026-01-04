@@ -5,6 +5,7 @@ This guide will walk you through setting up and running the complete JWT token s
 ## Prerequisites
 
 - Python 3.8 or higher
+- liboqs (required by oqs for Kyber KEM)
 - Docker and Docker Compose (for Redis and Kafka)
 - Or install Redis and Kafka manually
 
@@ -27,6 +28,8 @@ source .venv/bin/activate
 ```bash
 pip install -r requirements.txt
 ```
+
+Note: `oqs` depends on `liboqs`; install liboqs if the pip install fails.
 
 ## Step 2: Start Infrastructure Services
 
@@ -89,6 +92,7 @@ JWT_ISSUER=p4-revocation-service
 
 # PQC Configuration
 PQC_SIGNING_KEY_ID=p4-dilithium-key-1
+KYBER_KEM_ALG=ML-KEM-512
 NONCE_TTL_SECONDS=180
 ```
 
@@ -99,6 +103,7 @@ NONCE_TTL_SECONDS=180
 - `KAFKA_BOOTSTRAP`: `"localhost:29092"`
 - `REDIS_URL`: `"redis://localhost:6379/0"`
 - `SQLITE_PATH`: `"./revocation.db"`
+- `KYBER_KEM_ALG`: `"ML-KEM-512"` (falls back to available Kyber/ML-KEM)
 
 **When to configure:**
 - ✅ **Production**: Always configure `JWT_SECRET_KEY` with a strong random key
@@ -216,26 +221,23 @@ Response:
   "refresh_jti": "uuid-here",
   "access_jti": "uuid-here",
   "subject": "user123",
-  "kyber_public_key": "base64-encoded-key"
+  "client_public_key": "base64url-encoded-key"
 }
 ```
 
-**Important**: Save the `refresh_token` and `kyber_public_key` for the next step.
+**Important**: Save the `refresh_token` for the next step. The `client_public_key` is a convenience value; for real forward secrecy, generate a fresh client key pair per refresh.
 
 ### 7.5 Refresh Access Token (with Kyber Forward Secrecy)
 
-First, generate a client Kyber key pair (you'll need to implement this on the client side, or use the server's public key):
+First, generate a client Kyber KEM key pair and keep the private key for decapsulation (recommended). For quick tests, you can reuse the `client_public_key` returned by `/token/refresh/create`.
 
 ```bash
-# For testing, you can use the server's public key
-# In production, the client should generate its own key pair
-
 curl -X POST "http://localhost:8000/token/refresh" \
   -H "Content-Type: application/json" \
   -d '{
     "refresh_token": "YOUR_REFRESH_TOKEN_HERE",
     "client_binding": "device-fingerprint-abc123",
-    "client_public_key": "YOUR_CLIENT_PUBLIC_KEY_BASE64"
+    "client_public_key": "YOUR_CLIENT_PUBLIC_KEY_BASE64URL"
   }'
 ```
 
@@ -246,7 +248,7 @@ Response:
   "refresh_token": null,
   "token_type": "bearer",
   "expires_in": 1800,
-  "server_public_key": "base64-encoded-key",
+  "kem_ciphertext": "base64-encoded-ciphertext",
   "encrypted_session_key": "encrypted-key",
   "access_jti": "uuid-here"
 }
@@ -276,7 +278,6 @@ curl -X POST "http://localhost:8000/token/refresh/revoke" \
 
 ```python
 import requests
-import base64
 from app.pqc_crypto import KyberKeyExchange
 
 # Base URL
@@ -310,11 +311,11 @@ def refresh_access_token(refresh_token: str, client_binding: str):
     
     if response.status_code == 200:
         data = response.json()
-        # Derive shared secret with server's public key
-        server_public_key = data["server_public_key"]
-        shared_secret = KyberKeyExchange.derive_shared_secret(
+        # Decapsulate ciphertext to derive the shared secret
+        kem_ciphertext = data["kem_ciphertext"]
+        shared_secret = KyberKeyExchange.decapsulate(
             private_key,
-            KyberKeyExchange.decode_public_key(server_public_key)
+            KyberKeyExchange.decode_ciphertext(kem_ciphertext)
         )
         return data, shared_secret
     
@@ -429,7 +430,6 @@ docker-compose up -d
 
 ## Next Steps
 
-- Implement actual Kyber algorithm (currently using X25519 as placeholder)
 - Add token rotation for refresh tokens
 - Implement refresh token family tracking
 - Add rate limiting
@@ -450,5 +450,3 @@ docker-compose up -d
 | POST | `/revoke` | Revoke token by JTI/sub/KID |
 
 For detailed API documentation, visit: http://localhost:8000/docs
-
-

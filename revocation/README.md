@@ -26,7 +26,7 @@
 ### Kyber Forward Secrecy
 - Post-quantum cryptography for key exchange during refresh
 - Forward secrecy ensures past sessions remain secure even if keys are compromised
-- Uses X25519 (ECDH) for forward secrecy (can be replaced with actual Kyber)
+- Uses Kyber/ML-KEM (oqs) for KEM-based forward secrecy
 
 ### Event Streaming
 - Kafka-based event streaming for fast propagation across services

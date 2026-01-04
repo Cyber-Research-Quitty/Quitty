@@ -14,20 +14,16 @@ from .config import (
     JWT_REFRESH_TOKEN_EXPIRE_DAYS,
     JWT_ISSUER
 )
-from .pqc_crypto import (
-    generate_kyber_keypair,
-    derive_kyber_secret,
-    hash_client_binding
-)
+from .pqc_crypto import encapsulate_kyber_secret, hash_client_binding
 
 
 def create_refresh_token(
     subject: str,
     client_binding: str,
     additional_claims: Optional[Dict[str, Any]] = None
-) -> Tuple[str, str, str]:
+) -> Tuple[str, str]:
     """
-    Create a client-bound refresh token with Kyber key exchange setup.
+    Create a client-bound refresh token for Kyber-forward-secure refresh.
     
     Args:
         subject: The subject (user ID) for the token
@@ -35,10 +31,8 @@ def create_refresh_token(
         additional_claims: Additional claims to include
     
     Returns:
-        Tuple of (refresh_token, public_key_encoded, client_binding_hash)
+        Tuple of (refresh_token, client_binding_hash)
     """
-    # Generate Kyber key pair for this refresh token
-    public_key_encoded, private_key_hex = generate_kyber_keypair()
     
     # Hash client binding information
     client_hash = hash_client_binding(client_binding)
@@ -59,7 +53,6 @@ def create_refresh_token(
         "jti": refresh_jti,
         "type": "refresh",
         "client_hash": client_hash,  # Client binding
-        "kyber_pub": public_key_encoded,  # Public key for forward secrecy
     }
     
     # Add additional claims if provided
@@ -71,7 +64,7 @@ def create_refresh_token(
     
     # Store private key mapping (in production, encrypt this)
     # For now, we'll return it - in production, store encrypted in database
-    return refresh_token, public_key_encoded, client_hash
+    return refresh_token, client_hash
 
 
 async def validate_refresh_token(
@@ -159,17 +152,17 @@ async def perform_kyber_refresh(
     """
     Perform refresh with Kyber forward secrecy.
     
-    Client sends their public key, server derives shared secret,
-    and uses it to encrypt the new token exchange.
+    Client sends their Kyber KEM public key; server encapsulates
+    and returns the ciphertext for client-side decapsulation.
     
     Args:
         refresh_token: The refresh token
         client_binding: Client identifier
-        client_public_key: Client's Kyber public key (base64 encoded)
+        client_public_key: Client's Kyber KEM public key (base64url)
         redis_client: Redis client
     
     Returns:
-        Tuple of (new_access_token_payload, server_public_key, encrypted_session_key)
+        Tuple of (new_access_token_payload, kem_ciphertext, encrypted_session_key)
     """
     # Validate refresh token and client binding
     refresh_payload = await validate_refresh_token(
@@ -179,17 +172,13 @@ async def perform_kyber_refresh(
         redis_client=redis_client
     )
     
-    # Get server's stored private key (in production, retrieve from secure storage)
-    # For now, generate new keypair for forward secrecy
-    server_public_key, server_private_key = generate_kyber_keypair()
-    
-    # Derive shared secret using client's public key and server's private key
+    # Encapsulate to client's public key to derive a shared secret
     try:
-        shared_secret = derive_kyber_secret(server_private_key, client_public_key)
+        kem_ciphertext, shared_secret = encapsulate_kyber_secret(client_public_key)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Key exchange failed: {str(e)}"
+            detail=f"Kyber KEM encapsulation failed: {str(e)}"
         )
     
     # Use shared secret to derive encryption key for session
@@ -219,7 +208,7 @@ async def perform_kyber_refresh(
     # Encrypt session key with shared secret (simplified - use proper encryption in production)
     encrypted_session_key = secrets.token_urlsafe(32)  # Placeholder
     
-    return new_token_payload, server_public_key, encrypted_session_key
+    return new_token_payload, kem_ciphertext, encrypted_session_key
 
 
 def get_refresh_token_claims(token: str) -> Dict[str, Any]:
@@ -232,4 +221,3 @@ def get_refresh_token_claims(token: str) -> Dict[str, Any]:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid refresh token format"
         )
-

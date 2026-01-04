@@ -72,7 +72,7 @@ def insert_refresh_token(
     token_id: str,
     subject: str,
     client_hash: str,
-    kyber_public_key: str,
+    kyber_public_key: Optional[str],
     created_at: str,
     expires_at: str,
     db_path: Optional[str] = None

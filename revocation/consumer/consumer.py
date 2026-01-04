@@ -90,7 +90,6 @@ async def process_token_event(event: dict, rds: redis.Redis):
         token_id = event.get("token_id")
         subject = event.get("subject")
         client_hash = event.get("client_hash")
-        kyber_pub = event.get("kyber_pub")
         
         if token_id:
             # Cache refresh token metadata
@@ -100,7 +99,6 @@ async def process_token_event(event: dict, rds: redis.Redis):
                 json.dumps({
                     "subject": subject,
                     "client_hash": client_hash,
-                    "kyber_pub": kyber_pub,
                     "created": True
                 })
             )

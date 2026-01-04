@@ -17,7 +17,7 @@ from .store_sqlite import (
     init_sqlite, insert_event, insert_refresh_token, update_refresh_token_usage,
     revoke_refresh_token, insert_token_event
 )
-from .pqc_crypto import canonical_bytes, dilithium_sign
+from .pqc_crypto import canonical_bytes, dilithium_sign, generate_kyber_keypair
 from .kafka_pub import start_producer, publish_event, publish_token_event
 from .jwt_utils import create_access_token, validate_token, get_token_claims, is_token_revoked
 from .refresh_token_utils import (
@@ -291,7 +291,7 @@ async def create_refresh_token_endpoint(req: RefreshTokenRequest):
     - **client_binding**: Client identifier (device fingerprint, IP+UA hash, etc.)
     - **additional_claims**: Optional additional claims
     
-    Returns both access token and refresh token with Kyber public key.
+    Returns both access token and refresh token for Kyber-forward-secure refresh.
     """
     global rds, producer
     if not rds or not producer:
@@ -301,7 +301,7 @@ async def create_refresh_token_endpoint(req: RefreshTokenRequest):
     ts = utc_now_iso()
     
     # Create refresh token with client binding
-    refresh_token, kyber_public_key, client_hash = create_refresh_token(
+    refresh_token, client_hash = create_refresh_token(
         subject=req.subject,
         client_binding=req.client_binding,
         additional_claims=req.additional_claims
@@ -339,7 +339,7 @@ async def create_refresh_token_endpoint(req: RefreshTokenRequest):
             token_id=refresh_jti,
             subject=req.subject,
             client_hash=client_hash,
-            kyber_public_key=kyber_public_key,
+            kyber_public_key=None,
             created_at=ts,
             expires_at=expires_at
         )
@@ -351,8 +351,7 @@ async def create_refresh_token_endpoint(req: RefreshTokenRequest):
         refresh_expires_in,
         json.dumps({
             "subject": req.subject,
-            "client_hash": client_hash,
-            "kyber_pub": kyber_public_key
+            "client_hash": client_hash
         })
     )
     
@@ -383,6 +382,8 @@ async def create_refresh_token_endpoint(req: RefreshTokenRequest):
     # Publish to Kafka
     await publish_token_event(producer, canonical_bytes(token_event))
     
+    client_public_key, _ = generate_kyber_keypair()
+
     return RefreshTokenResponse(
         refresh_token=refresh_token,
         access_token=access_token,
@@ -392,7 +393,7 @@ async def create_refresh_token_endpoint(req: RefreshTokenRequest):
         refresh_jti=refresh_jti,
         access_jti=access_jti,
         subject=req.subject,
-        kyber_public_key=kyber_public_key
+        client_public_key=client_public_key
     )
 
 
@@ -403,9 +404,9 @@ async def refresh_token_endpoint(req: RefreshTokenRefreshRequest):
     
     - **refresh_token**: The refresh token
     - **client_binding**: Current client identifier (must match original)
-    - **client_public_key**: Client's Kyber public key for forward secrecy
+    - **client_public_key**: Client's Kyber KEM public key for forward secrecy
     
-    Returns new access token with Kyber-encrypted session key.
+    Returns new access token and Kyber KEM ciphertext for client-side decapsulation.
     """
     global rds, producer
     if not rds or not producer:
@@ -416,7 +417,7 @@ async def refresh_token_endpoint(req: RefreshTokenRefreshRequest):
     
     # Perform Kyber-based refresh
     try:
-        new_token_payload, server_public_key, encrypted_session_key = await perform_kyber_refresh(
+        new_token_payload, kem_ciphertext, encrypted_session_key = await perform_kyber_refresh(
             refresh_token=req.refresh_token,
             client_binding=req.client_binding,
             client_public_key=req.client_public_key,
@@ -490,7 +491,7 @@ async def refresh_token_endpoint(req: RefreshTokenRefreshRequest):
         refresh_token=None,  # Token rotation can be added later
         token_type="bearer",
         expires_in=expires_in,
-        server_public_key=server_public_key,
+        kem_ciphertext=kem_ciphertext,
         encrypted_session_key=encrypted_session_key,
         access_jti=access_jti
     )
