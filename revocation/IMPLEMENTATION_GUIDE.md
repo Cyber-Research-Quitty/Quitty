@@ -43,7 +43,7 @@ docker ps
 You should see:
 - `p4-redis` on port 6379
 - `p4-zookeeper` on port 2181
-- `p4-kafka` on port 9092
+- `p4-kafka` on port 29092
 
 ### Option B: Manual Installation
 
@@ -70,7 +70,7 @@ Create a `.env` file in the project root (optional, defaults are provided):
 
 ```env
 # Kafka Configuration
-KAFKA_BOOTSTRAP=localhost:9092
+KAFKA_BOOTSTRAP=localhost:29092
 KAFKA_TOPIC=revocations
 REFRESH_TOKEN_TOPIC=token-events
 
@@ -96,7 +96,7 @@ NONCE_TTL_SECONDS=180
 - `JWT_SECRET_KEY`: `"your-secret-key-change-in-production"` ⚠️ **Change this in production!**
 - `JWT_ACCESS_TOKEN_EXPIRE_MINUTES`: `30`
 - `JWT_REFRESH_TOKEN_EXPIRE_DAYS`: `90`
-- `KAFKA_BOOTSTRAP`: `"localhost:9092"`
+- `KAFKA_BOOTSTRAP`: `"localhost:29092"`
 - `REDIS_URL`: `"redis://localhost:6379/0"`
 - `SQLITE_PATH`: `"./revocation.db"`
 
@@ -373,16 +373,16 @@ SELECT * FROM revocation_events ORDER BY ts DESC LIMIT 10;
 
 ```bash
 # List topics
-docker exec -it p4-kafka kafka-topics --list --bootstrap-server localhost:9092
+docker exec -it p4-kafka kafka-topics --list --bootstrap-server localhost:29092
 
 # Consume messages from a topic
 docker exec -it p4-kafka kafka-console-consumer \
-  --bootstrap-server localhost:9092 \
+  --bootstrap-server localhost:29092 \
   --topic revocations \
   --from-beginning
 
 docker exec -it p4-kafka kafka-console-consumer \
-  --bootstrap-server localhost:9092 \
+  --bootstrap-server localhost:29092 \
   --topic token-events \
   --from-beginning
 ```

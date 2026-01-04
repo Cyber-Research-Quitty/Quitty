@@ -165,7 +165,7 @@ docker-compose up -d
 This starts:
 - **Redis** on port `6379`
 - **Zookeeper** on port `2181`
-- **Kafka** on port `9092`
+- **Kafka** on port `29092`
 
 **Verify services are running:**
 ```bash
@@ -202,7 +202,7 @@ Create a `.env` file in the project root (optional):
 # ============================================
 # Kafka Configuration
 # ============================================
-KAFKA_BOOTSTRAP=localhost:9092
+KAFKA_BOOTSTRAP=localhost:29092
 KAFKA_TOPIC=revocations
 REFRESH_TOKEN_TOPIC=token-events
 
@@ -241,7 +241,7 @@ If you don't set environment variables, the service uses these defaults:
 | `JWT_SECRET_KEY` | `"your-secret-key-change-in-production"` | ⚠️ **MUST change in production** |
 | `JWT_ACCESS_TOKEN_EXPIRE_MINUTES` | `30` | Access token lifetime |
 | `JWT_REFRESH_TOKEN_EXPIRE_DAYS` | `90` | Refresh token lifetime |
-| `KAFKA_BOOTSTRAP` | `localhost:9092` | Kafka broker address |
+| `KAFKA_BOOTSTRAP` | `localhost:29092` | Kafka broker address |
 | `REDIS_URL` | `redis://localhost:6379/0` | Redis connection URL |
 | `SQLITE_PATH` | `./revocation.db` | Database file path |
 
@@ -800,7 +800,7 @@ docker build -t revocation-service .
 docker run -p 8000:8000 \
   -e JWT_SECRET_KEY="your-secret-key" \
   -e REDIS_URL="redis://redis-host:6379/0" \
-  -e KAFKA_BOOTSTRAP="kafka-host:9092" \
+  -e KAFKA_BOOTSTRAP="kafka-host:29092" \
   revocation-service
 ```
 
@@ -825,11 +825,16 @@ services:
     depends_on:
       - zookeeper
     ports:
-      - "9092:9092"
+      - "29092:29092"
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
-      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://localhost:9092"
+      KAFKA_LISTENERS: "PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:29092"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
 
   api:
     build: .
@@ -933,7 +938,7 @@ sqlite3 revocation.db "SELECT * FROM revocation_events ORDER BY ts DESC LIMIT 5;
 ps aux | grep consumer
 
 # Check Kafka topics
-docker exec -it p4-kafka kafka-topics --list --bootstrap-server localhost:9092
+docker exec -it p4-kafka kafka-topics --list --bootstrap-server localhost:29092
 
 # Restart consumer
 python -m consumer.consumer
@@ -979,7 +984,7 @@ SELECT * FROM refresh_tokens WHERE revoked = 0;
 #### Check Kafka Topics
 ```bash
 docker exec -it p4-kafka kafka-console-consumer \
-  --bootstrap-server localhost:9092 \
+  --bootstrap-server localhost:29092 \
   --topic revocations \
   --from-beginning
 ```

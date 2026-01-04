@@ -1,6 +1,6 @@
 import os
 
-KAFKA_BOOTSTRAP = os.getenv("KAFKA_BOOTSTRAP", "localhost:9092")
+KAFKA_BOOTSTRAP = os.getenv("KAFKA_BOOTSTRAP", "localhost:29092")
 KAFKA_TOPIC = os.getenv("KAFKA_TOPIC", "revocations")
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
