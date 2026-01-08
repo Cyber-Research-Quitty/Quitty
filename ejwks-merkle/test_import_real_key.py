@@ -8,7 +8,7 @@ import json
 # The real key data from root_signer_key.json
 # We only send the PUBLIC key to the JWKS endpoint
 jwk_payload = {
-    "kid": "root-dilithium2-2",
+    "kid": "root-dilithium2-4",
     "kty": "OKP",
     "alg": "dilithium2",
     "crv": "Dilithium2",
