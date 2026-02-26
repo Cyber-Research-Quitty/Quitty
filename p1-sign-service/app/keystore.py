@@ -2,79 +2,138 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Dict
+from typing import Any
+from datetime import datetime, timezone
 
-from .config import settings
 from .crypto_backend import KeyPair, AlgName
-from .crypto_ed25519 import Ed25519Backend
+from .backend_factory import get_backend
+from .config import settings
 
 
-class JsonKeyStore:
-    """
-    Very simple JSON file-based keystore for P1.
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
-    For now:
-      - Stores private + public keys in a local JSON file.
-      - On first use, generates one Ed25519 keypair and reuses it.
-      - Later we can extend this for multiple keys, rotation, Dilithium, etc.
-    """
 
-    def __init__(self, path: str | Path, default_alg: AlgName = "ed25519-dev"):
-        self.path = Path(path)
+class KeyStore:
+    def __init__(self, path: Path):
+        self.path = path
         self.path.parent.mkdir(parents=True, exist_ok=True)
 
-        self._default_alg: AlgName = default_alg
-        self._backend = Ed25519Backend()
-        self._cache: Dict[str, KeyPair] = {}
-
-        self._load()
-
-    def _load(self) -> None:
+    def _load(self) -> dict[str, Any]:
         if not self.path.exists():
-            return
+            return {"active": {}, "keys": {}}
 
-        data = json.loads(self.path.read_text())
-        for kid, record in data.items():
-            kp = KeyPair(
-                alg=record["alg"],
-                kid=record["kid"],
-                public_key=bytes.fromhex(record["public_key"]),
-                private_key=bytes.fromhex(record["private_key"]),
-            )
-            self._cache[kid] = kp
+        with self.path.open("r", encoding="utf-8") as f:
+            data = json.load(f)
 
-    def _flush(self) -> None:
-        data = {
-            kid: {
-                "alg": kp.alg,
-                "kid": kp.kid,
-                "public_key": kp.public_key.hex(),
-                "private_key": kp.private_key.hex(),
-            }
-            for kid, kp in self._cache.items()
+        # Backward compatibility old format
+        if "keys" not in data:
+            return {"active": {}, "keys": data}
+
+        if "active" not in data:
+            data["active"] = {}
+
+        return data
+
+    def _save(self, data: dict[str, Any]) -> None:
+        tmp = self.path.with_suffix(".tmp")
+        with tmp.open("w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+        tmp.replace(self.path)
+
+    def _kp_to_record(self, kp: KeyPair) -> dict[str, Any]:
+        return {
+            "alg": kp.alg,
+            "kid": kp.kid,
+            "public_key": kp.public_key.hex(),
+            "private_key": kp.private_key.hex(),
+            "createdAt": _now_iso(),
         }
-        self.path.write_text(json.dumps(data, indent=2))
+
+    def _record_to_kp(self, rec: dict[str, Any]) -> KeyPair:
+        return KeyPair(
+            alg=rec["alg"],
+            kid=rec["kid"],
+            public_key=bytes.fromhex(rec["public_key"]),
+            private_key=bytes.fromhex(rec["private_key"]),
+        )
 
     def get(self, kid: str) -> KeyPair | None:
-        return self._cache.get(kid)
+        data = self._load()
+        rec = data["keys"].get(kid)
+        if not rec:
+            return None
+        return self._record_to_kp(rec)
 
-    def put(self, kp: KeyPair) -> None:
-        self._cache[kp.kid] = kp
-        self._flush()
+    def get_active_kid(self, alg: AlgName) -> str | None:
+        data = self._load()
+        return data.get("active", {}).get(alg)
 
-    def get_active_key(self) -> KeyPair:
-        """
-        For v0: just return the first key if it exists, otherwise generate one.
-        Later we can add real 'active' key logic + rotation.
-        """
-        if self._cache:
-            # return first key in dict
-            return next(iter(self._cache.values()))
+    def get_active_key(self, alg: AlgName) -> KeyPair:
+        data = self._load()
 
-        kp = self._backend.generate_keypair(self._default_alg)
-        self.put(kp)
+        active_kid = data["active"].get(alg)
+        if active_kid:
+            kp = self.get(active_kid)
+            if kp and kp.alg == alg:
+                return kp
+
+        backend = get_backend(alg)
+        kp = backend.generate_keypair(alg)
+
+        data["keys"][kp.kid] = self._kp_to_record(kp)
+        data["active"][alg] = kp.kid
+        self._save(data)
+
         return kp
 
+    def rotate(self, alg: AlgName) -> KeyPair:
+        """
+        Generate a new keypair for alg and switch active pointer.
+        Old keys remain stored so verification of older tokens still works.
+        """
+        data = self._load()
 
-# Single global keystore instance used by the P1 service
-keystore = JsonKeyStore(settings.keystore_path)
+        backend = get_backend(alg)
+        kp = backend.generate_keypair(alg)
+
+        data["keys"][kp.kid] = self._kp_to_record(kp)
+        data["active"][alg] = kp.kid
+        self._save(data)
+
+        return kp
+
+    def list_public(self, alg: AlgName | None = None, include_all: bool = True) -> dict[str, Any]:
+        """
+        Export public-only view for P2 / debugging. Never returns private keys.
+        """
+        data = self._load()
+        active = data.get("active", {})
+        keys = data.get("keys", {})
+
+        if include_all:
+            items = keys.items()
+        else:
+            active_kids = set(active.values())
+            items = ((kid, rec) for kid, rec in keys.items() if kid in active_kids)
+
+        out = []
+        for kid, rec in items:
+            if alg is not None and rec.get("alg") != alg:
+                continue
+            pub = bytes.fromhex(rec["public_key"])
+            out.append(
+                {
+                    "kid": kid,
+                    "alg": rec["alg"],
+                    "public_key_hex": rec["public_key"],
+                    "public_key_len": len(pub),
+                    "createdAt": rec.get("createdAt"),
+                    "is_active": active.get(rec["alg"]) == kid,
+                }
+            )
+
+        return {"active": active, "keys": out}
+
+
+keystore = KeyStore(Path(settings.keystore_path))

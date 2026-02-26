@@ -8,6 +8,8 @@ from .config import settings
 from .routes_sign import router as sign_router
 from .routes_verify import router as verify_router
 from .metrics import HTTP_REQUESTS_TOTAL, HTTP_REQUEST_LATENCY_SECONDS
+from .routes_integration import router as integration_router
+
 
 app = FastAPI(
     title=settings.app_name,
@@ -17,6 +19,8 @@ app = FastAPI(
 
 app.include_router(sign_router)
 app.include_router(verify_router)
+app.include_router(integration_router)
+
 
 
 @app.middleware("http")
@@ -37,7 +41,6 @@ async def prometheus_middleware(request: Request, call_next):
 
 @app.get("/metrics", response_class=PlainTextResponse, tags=["internal"])
 def metrics():
-    # Prometheus scraping endpoint
     return PlainTextResponse(generate_latest().decode("utf-8"))
 
 
