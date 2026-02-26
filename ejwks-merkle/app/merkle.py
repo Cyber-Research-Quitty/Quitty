@@ -1,12 +1,12 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, List, Any
-from .utils import sha256, b64url_encode, b64url_decode, canonical_json
+from .utils import sha256, b64url_encode, b64url_decode, canonical_json, public_jwk
 
 def leaf_hash(jwk: Dict[str, Any]) -> bytes:
     # MUST stay stable across server & client.
     # Domain separation: prefix with 0x00 for leaf nodes
-    jwk_public = {k: v for k, v in jwk.items() if k != "d"}
+    jwk_public = public_jwk(jwk)
     return sha256(b"\x00" + canonical_json(jwk_public))
 
 def parent_hash(left: bytes, right: bytes) -> bytes:

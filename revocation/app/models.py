@@ -56,13 +56,16 @@ class RefreshTokenResponse(BaseModel):
     refresh_jti: str = Field(..., description="Refresh token JTI for revocation")
     access_jti: str = Field(..., description="Access token JTI")
     subject: str
-    kyber_public_key: str = Field(..., description="Server's Kyber public key for forward secrecy")
+    client_public_key: Optional[str] = Field(
+        None,
+        description="Client Kyber KEM public key (base64url, demo convenience)"
+    )
 
 
 class RefreshTokenRefreshRequest(BaseModel):
     refresh_token: str = Field(..., description="Refresh token to use")
     client_binding: str = Field(..., min_length=1, description="Current client identifier")
-    client_public_key: str = Field(..., description="Client's Kyber public key (base64 encoded)")
+    client_public_key: str = Field(..., description="Client's Kyber KEM public key (base64url)")
 
 
 class RefreshTokenRefreshResponse(BaseModel):
@@ -70,6 +73,6 @@ class RefreshTokenRefreshResponse(BaseModel):
     refresh_token: Optional[str] = Field(None, description="New refresh token (if rotated)")
     token_type: str = "bearer"
     expires_in: int
-    server_public_key: str = Field(..., description="Server's Kyber public key")
+    kem_ciphertext: str = Field(..., description="Kyber KEM ciphertext (base64url)")
     encrypted_session_key: str = Field(..., description="Encrypted session key for forward secrecy")
     access_jti: str

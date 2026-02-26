@@ -4,6 +4,8 @@ import hashlib
 import json
 from typing import Any, Dict
 
+PRIVATE_JWK_FIELDS = {"d", "p", "q", "dp", "dq", "qi", "oth", "k"}
+
 def b64url_encode(raw: bytes) -> str:
     return base64.urlsafe_b64encode(raw).rstrip(b"=").decode("ascii")
 
@@ -32,3 +34,6 @@ def jwk_thumbprint(jwk: Dict[str, Any]) -> str:
         thumb_obj = {k: v for k, v in jwk.items() if k not in {"d","p","q","dp","dq","qi","oth"}}
         thumb_obj["kty"] = kty
     return b64url_encode(sha256(canonical_json(thumb_obj)))
+
+def public_jwk(jwk: Dict[str, Any]) -> Dict[str, Any]:
+    return {k: v for k, v in jwk.items() if k not in PRIVATE_JWK_FIELDS}

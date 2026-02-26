@@ -29,7 +29,7 @@ This is a production-ready JWT token revocation and management service that prov
 - **JWT Token Generation & Validation**: Create and validate access tokens with configurable expiration
 - **Token Revocation**: Revoke tokens by JTI (token ID), subject (user ID), or key ID
 - **Refresh Tokens**: Long-lived refresh tokens with client device binding
-- **Forward Secrecy**: Kyber-based (X25519) key exchange for post-quantum security
+- **Forward Secrecy**: Kyber/ML-KEM key encapsulation for post-quantum security
 - **Event Streaming**: Kafka-based event propagation across microservices
 - **Fast Lookups**: Redis caching for O(1) revocation checks
 - **Audit Trail**: SQLite database for permanent audit logging
@@ -106,6 +106,7 @@ This is a production-ready JWT token revocation and management service that prov
 ### Required Software
 
 - **Python 3.8+** (3.10+ recommended)
+- **liboqs** (required by oqs for Kyber KEM)
 - **Docker & Docker Compose** (for infrastructure)
 - **Git** (for cloning the repository)
 
@@ -153,6 +154,9 @@ This installs:
 - `aiokafka` - Kafka client
 - `PyJWT` - JWT handling
 - `cryptography` - Cryptographic operations
+- `oqs` - Kyber/ML-KEM via liboqs
+
+Note: `oqs` depends on `liboqs`; install liboqs if the pip install fails.
 
 ### Step 4: Start Infrastructure Services
 
@@ -165,7 +169,7 @@ docker-compose up -d
 This starts:
 - **Redis** on port `6379`
 - **Zookeeper** on port `2181`
-- **Kafka** on port `9092`
+- **Kafka** on port `29092`
 
 **Verify services are running:**
 ```bash
@@ -202,7 +206,7 @@ Create a `.env` file in the project root (optional):
 # ============================================
 # Kafka Configuration
 # ============================================
-KAFKA_BOOTSTRAP=localhost:9092
+KAFKA_BOOTSTRAP=localhost:29092
 KAFKA_TOPIC=revocations
 REFRESH_TOKEN_TOPIC=token-events
 
@@ -229,6 +233,7 @@ JWT_ISSUER=p4-revocation-service
 # PQC Configuration
 # ============================================
 PQC_SIGNING_KEY_ID=p4-dilithium-key-1
+KYBER_KEM_ALG=ML-KEM-512
 NONCE_TTL_SECONDS=180
 ```
 
@@ -241,9 +246,10 @@ If you don't set environment variables, the service uses these defaults:
 | `JWT_SECRET_KEY` | `"your-secret-key-change-in-production"` | ⚠️ **MUST change in production** |
 | `JWT_ACCESS_TOKEN_EXPIRE_MINUTES` | `30` | Access token lifetime |
 | `JWT_REFRESH_TOKEN_EXPIRE_DAYS` | `90` | Refresh token lifetime |
-| `KAFKA_BOOTSTRAP` | `localhost:9092` | Kafka broker address |
+| `KAFKA_BOOTSTRAP` | `localhost:29092` | Kafka broker address |
 | `REDIS_URL` | `redis://localhost:6379/0` | Redis connection URL |
 | `SQLITE_PATH` | `./revocation.db` | Database file path |
+| `KYBER_KEM_ALG` | `ML-KEM-512` | Falls back to available Kyber/ML-KEM |
 
 ### Loading Environment Variables
 
@@ -536,7 +542,7 @@ Create a refresh token with client binding and Kyber forward secrecy.
   "refresh_jti": "770e8400-e29b-41d4-a716-446655440002",
   "access_jti": "880e8400-e29b-41d4-a716-446655440003",
   "subject": "user123",
-  "kyber_public_key": "dGVzdC1wdWJsaWMta2V5LWJhc2U2NA=="
+  "client_public_key": "dGVzdC1wdWJsaWMta2V5LWJhc2U2NA=="
 }
 ```
 
@@ -574,7 +580,7 @@ Refresh access token using refresh token with Kyber forward secrecy.
   "refresh_token": null,
   "token_type": "bearer",
   "expires_in": 1800,
-  "server_public_key": "c2VydmVyLXB1YmxpYy1rZXktYmFzZTY0",
+  "kem_ciphertext": "c2VydmVyLWNpcGhlcnRleHQtYmFzZTY0",
   "encrypted_session_key": "encrypted-session-key-here",
   "access_jti": "990e8400-e29b-41d4-a716-446655440004"
 }
@@ -718,7 +724,7 @@ response = requests.post(
 tokens = response.json()
 
 refresh_token = tokens["refresh_token"]
-server_kyber_key = tokens["kyber_public_key"]
+# Optional: tokens.get("client_public_key") is a convenience value for quick tests.
 
 # Store securely (encrypted)
 save_refresh_token(refresh_token)
@@ -741,11 +747,11 @@ def refresh_access_token():
     if response.status_code == 200:
         data = response.json()
         
-        # Derive shared secret
-        server_pub = KyberKeyExchange.decode_public_key(data["server_public_key"])
-        shared_secret = KyberKeyExchange.derive_shared_secret(
+        # Decapsulate ciphertext to derive shared secret
+        kem_ciphertext = data["kem_ciphertext"]
+        shared_secret = KyberKeyExchange.decapsulate(
             client_private_key,
-            server_pub
+            KyberKeyExchange.decode_ciphertext(kem_ciphertext)
         )
         
         return data["access_token"], shared_secret
@@ -800,7 +806,7 @@ docker build -t revocation-service .
 docker run -p 8000:8000 \
   -e JWT_SECRET_KEY="your-secret-key" \
   -e REDIS_URL="redis://redis-host:6379/0" \
-  -e KAFKA_BOOTSTRAP="kafka-host:9092" \
+  -e KAFKA_BOOTSTRAP="kafka-host:29092" \
   revocation-service
 ```
 
@@ -825,11 +831,16 @@ services:
     depends_on:
       - zookeeper
     ports:
-      - "9092:9092"
+      - "29092:29092"
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
-      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://localhost:9092"
+      KAFKA_LISTENERS: "PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:29092"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
 
   api:
     build: .
@@ -933,7 +944,7 @@ sqlite3 revocation.db "SELECT * FROM revocation_events ORDER BY ts DESC LIMIT 5;
 ps aux | grep consumer
 
 # Check Kafka topics
-docker exec -it p4-kafka kafka-topics --list --bootstrap-server localhost:9092
+docker exec -it p4-kafka kafka-topics --list --bootstrap-server localhost:29092
 
 # Restart consumer
 python -m consumer.consumer
@@ -979,7 +990,7 @@ SELECT * FROM refresh_tokens WHERE revoked = 0;
 #### Check Kafka Topics
 ```bash
 docker exec -it p4-kafka kafka-console-consumer \
-  --bootstrap-server localhost:9092 \
+  --bootstrap-server localhost:29092 \
   --topic revocations \
   --from-beginning
 ```
@@ -1167,4 +1178,3 @@ revocation/
 
 **Last Updated**: 2024
 **Version**: 1.0
-

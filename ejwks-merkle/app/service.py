@@ -10,7 +10,7 @@ from .log_merkle import LogMerkleTree
 from .merkle import MerkleTree
 from .signer import RootSigner, sign_root_bundle
 from .storage import KeyStore
-from .utils import jwk_thumbprint
+from .utils import jwk_thumbprint, public_jwk
 
 class EJWKSService:
     def __init__(
@@ -88,8 +88,9 @@ class EJWKSService:
     # ---------------- Admin import ----------------
     def import_key(self, jwk: Dict[str, Any]) -> Dict[str, Any]:
         kid = jwk["kid"]
-        jkt = jwk_thumbprint(jwk)
-        self.store.upsert_key(kid=kid, jkt=jkt, jwk=jwk)
+        jwk_public = public_jwk(jwk)
+        jkt = jwk_thumbprint(jwk_public)
+        self.store.upsert_key(kid=kid, jkt=jkt, jwk=jwk_public)
         self.rebuild_tree()
         return {"kid": kid, "jkt": jkt}
 

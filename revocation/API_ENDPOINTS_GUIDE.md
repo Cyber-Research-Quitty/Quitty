@@ -251,7 +251,7 @@ print(f"Token subject: {claims['claims']['sub']}")
   "refresh_jti": "550e8400-e29b-41d4-a716-446655440000",
   "access_jti": "660e8400-e29b-41d4-a716-446655440001",
   "subject": "user123",
-  "kyber_public_key": "dGVzdC1wdWJsaWMta2V5LWJhc2U2NA=="  // For forward secrecy
+  "client_public_key": "dGVzdC1wdWJsaWMta2V5LWJhc2U2NA=="
 }
 ```
 
@@ -270,7 +270,6 @@ def login_with_refresh(username, device_id):
     
     # Store securely
     save_refresh_token(tokens["refresh_token"])
-    save_kyber_key(tokens["kyber_public_key"])
     
     return tokens["access_token"]
 ```
@@ -279,12 +278,13 @@ def login_with_refresh(username, device_id):
 - **Client Binding**: Token is bound to specific device/client
 - **Long-lived**: Valid for 90 days (configurable)
 - **Security**: Cannot be used on different devices
-- **Forward Secrecy**: Includes Kyber public key for secure refresh
+- **Forward Secrecy**: Kyber KEM used during refresh
 
 **Important**: 
 - Store `refresh_token` securely (encrypted storage)
-- Save `kyber_public_key` for refresh operations
 - Use same `client_binding` value when refreshing
+- Generate a new Kyber KEM key pair per refresh and keep the private key for decapsulation (recommended)
+- The `client_public_key` above is a convenience value for quick testing
 
 ---
 
@@ -301,7 +301,7 @@ def login_with_refresh(username, device_id):
 {
   "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "client_binding": "device-fingerprint-abc123",  // Must match original
-  "client_public_key": "dGVzdC1wdWJsaWMta2V5LWJhc2U2NA=="  // Client's Kyber public key
+  "client_public_key": "dGVzdC1wdWJsaWMta2V5LWJhc2U2NA=="  // Client's Kyber KEM public key (base64url)
 }
 ```
 
@@ -312,7 +312,7 @@ def login_with_refresh(username, device_id):
   "refresh_token": null,                   // Token rotation (future feature)
   "token_type": "bearer",
   "expires_in": 1800,
-  "server_public_key": "c2VydmVyLXB1YmxpYy1rZXktYmFzZTY0",  // Server's Kyber key
+  "kem_ciphertext": "c2VydmVyLWNpcGhlcnRleHQtYmFzZTY0",     // Kyber KEM ciphertext
   "encrypted_session_key": "encrypted-session-key-here",
   "access_jti": "770e8400-e29b-41d4-a716-446655440002"
 }
@@ -339,9 +339,10 @@ def refresh_access_token(refresh_token, device_id):
     if response.status_code == 200:
         data = response.json()
         
-        # Derive shared secret with server's public key
-        server_pub = KyberKeyExchange.decode_public_key(data["server_public_key"])
-        shared_secret = KyberKeyExchange.derive_shared_secret(private_key, server_pub)
+        # Decapsulate ciphertext to derive shared secret
+        kem_ciphertext = data["kem_ciphertext"]
+        ciphertext = KyberKeyExchange.decode_ciphertext(kem_ciphertext)
+        shared_secret = KyberKeyExchange.decapsulate(private_key, ciphertext)
         
         # Use shared_secret for secure communication
         return data["access_token"], shared_secret
@@ -351,13 +352,13 @@ def refresh_access_token(refresh_token, device_id):
 
 **Security Features**:
 - **Client Binding Verification**: Ensures token is used on same device
-- **Kyber Forward Secrecy**: Each refresh uses new key exchange
+- **Kyber KEM Forward Secrecy**: Each refresh uses a new KEM exchange
 - **Automatic Revocation Check**: Verifies token hasn't been revoked
 
 **Error Cases**:
 - `401`: Token expired, invalid, or revoked
 - `401`: Client binding mismatch (different device)
-- `400`: Invalid key exchange
+- `400`: Invalid KEM encapsulation
 
 ---
 
@@ -537,7 +538,6 @@ tokens = requests.post(
 
 # Store securely
 save_refresh_token(tokens["refresh_token"])
-save_kyber_key(tokens["kyber_public_key"])
 
 # 2. Use access token
 access_token = tokens["access_token"]
