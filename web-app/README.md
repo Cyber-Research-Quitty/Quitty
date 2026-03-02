@@ -31,11 +31,6 @@ Services:
 - Cart API: `http://localhost:8003`
 - Product API: `http://localhost:8004`
 
-## Demo Login
-
-- Email: `alice@example.com`
-- Password: `password123`
-
 ## Stop the stack
 
 ```bash
