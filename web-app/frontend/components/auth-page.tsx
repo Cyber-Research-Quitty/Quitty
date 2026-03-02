@@ -13,8 +13,8 @@ export function AuthPage() {
   const [mode, setMode] = useState<AuthMode>('login');
   const [status, setStatus] = useState('Access your secure commerce dashboard.');
   const [loading, setLoading] = useState(false);
-  const [email, setEmail] = useState('alice@example.com');
-  const [password, setPassword] = useState('password123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [registerEmail, setRegisterEmail] = useState('');
   const [registerPassword, setRegisterPassword] = useState('');
@@ -46,6 +46,7 @@ export function AuthPage() {
 
     const data = (await response.json()) as AuthResponse;
     persistToken(data.access_token);
+    setLoading(false);
     router.replace('/home');
     router.refresh();
   }
@@ -74,10 +75,17 @@ export function AuthPage() {
       return;
     }
 
-    const data = (await response.json()) as AuthResponse;
-    persistToken(data.access_token);
-    router.replace('/home');
-    router.refresh();
+    await response.json() as AuthResponse;
+    setLoading(false);
+    setMode('login');
+    setEmail(registerEmail);
+    setPassword('');
+    setName('');
+    setRegisterEmail('');
+    setRegisterPassword('');
+    setAddress('');
+    setPhone('');
+    setStatus('Registration complete. Sign in with your new account.');
   }
 
   return (
@@ -115,7 +123,7 @@ export function AuthPage() {
           </div>
         </div>
 
-        <div className="auth-panel">
+          <div className="auth-panel">
           <div className="auth-panel-inner">
             <div className="auth-header-block">
               <h2>Welcome to the Shield</h2>
