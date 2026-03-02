@@ -10,8 +10,11 @@ from .backend_factory import get_backend
 from .config import settings
 
 
+SCHEMA_VERSION = 1
+
+
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 class KeyStore:
@@ -19,35 +22,97 @@ class KeyStore:
         self.path = path
         self.path.parent.mkdir(parents=True, exist_ok=True)
 
+    def _default_data(self) -> dict[str, Any]:
+        return {
+            "schema_version": SCHEMA_VERSION,
+            "updatedAt": _now_iso(),
+            "active": {},
+            "keys": {},
+        }
+
     def _load(self) -> dict[str, Any]:
+        # If file doesn't exist -> create empty schema v1 structure (not writing yet)
         if not self.path.exists():
-            return {"active": {}, "keys": {}}
+            return self._default_data()
 
         with self.path.open("r", encoding="utf-8") as f:
             data = json.load(f)
 
-        # Backward compatibility old format
+        # Backward compatibility: very old format where entire JSON is keys map
         if "keys" not in data:
-            return {"active": {}, "keys": data}
+            data = {"active": {}, "keys": data}
 
-        if "active" not in data:
+        # Ensure active exists
+        if "active" not in data or not isinstance(data["active"], dict):
             data["active"] = {}
+
+        # ---- schema versioning / migration ----
+        if "schema_version" not in data:
+            # v0 -> v1 migration (non-breaking)
+            data["schema_version"] = SCHEMA_VERSION
+            data["updatedAt"] = _now_iso()
+            # add status field if missing (optional)
+            self._apply_status_fields(data)
+            self._save(data)  # persist migration immediately
+        else:
+            if data["schema_version"] != SCHEMA_VERSION:
+                raise ValueError(f"Unsupported keystore schema_version: {data['schema_version']}")
+
+            # keep updatedAt fresh on save, but ensure it exists
+            if "updatedAt" not in data:
+                data["updatedAt"] = _now_iso()
+
+            # ensure status fields exist (optional self-heal)
+            self._apply_status_fields(data)
+
+        # self-heal: if active[alg] points to missing key, remove pointer
+        keys = data.get("keys", {})
+        active = data.get("active", {})
+        changed = False
+        for alg, kid in list(active.items()):
+            if kid not in keys:
+                active.pop(alg, None)
+                changed = True
+        if changed:
+            data["updatedAt"] = _now_iso()
+            self._save(data)
 
         return data
 
     def _save(self, data: dict[str, Any]) -> None:
+        data["updatedAt"] = _now_iso()
+
         tmp = self.path.with_suffix(".tmp")
         with tmp.open("w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
         tmp.replace(self.path)
 
-    def _kp_to_record(self, kp: KeyPair) -> dict[str, Any]:
+    def _apply_status_fields(self, data: dict[str, Any]) -> None:
+        """
+        Add record status ("active"/"inactive") based on the active pointer.
+        This does NOT change your signing/verifying logic, only improves clarity/stability.
+        """
+        keys = data.get("keys", {})
+        active = data.get("active", {})
+
+        # Reset all to inactive first, then set active ones to active
+        for kid, rec in keys.items():
+            if isinstance(rec, dict) and "status" not in rec:
+                rec["status"] = "inactive"
+
+        for alg, active_kid in active.items():
+            rec = keys.get(active_kid)
+            if isinstance(rec, dict):
+                rec["status"] = "active"
+
+    def _kp_to_record(self, kp: KeyPair, status: str = "inactive") -> dict[str, Any]:
         return {
             "alg": kp.alg,
             "kid": kp.kid,
             "public_key": kp.public_key.hex(),
             "private_key": kp.private_key.hex(),
             "createdAt": _now_iso(),
+            "status": status,
         }
 
     def _record_to_kp(self, rec: dict[str, Any]) -> KeyPair:
@@ -71,18 +136,26 @@ class KeyStore:
 
     def get_active_key(self, alg: AlgName) -> KeyPair:
         data = self._load()
+        keys = data["keys"]
+        active = data["active"]
 
-        active_kid = data["active"].get(alg)
+        active_kid = active.get(alg)
         if active_kid:
             kp = self.get(active_kid)
             if kp and kp.alg == alg:
                 return kp
 
+        # If no active key (or broken pointer), generate one and set active
         backend = get_backend(alg)
         kp = backend.generate_keypair(alg)
 
-        data["keys"][kp.kid] = self._kp_to_record(kp)
-        data["active"][alg] = kp.kid
+        # mark old active inactive (if any, just in case)
+        prev_active = active.get(alg)
+        if prev_active and prev_active in keys:
+            keys[prev_active]["status"] = "inactive"
+
+        keys[kp.kid] = self._kp_to_record(kp, status="active")
+        active[alg] = kp.kid
         self._save(data)
 
         return kp
@@ -93,12 +166,19 @@ class KeyStore:
         Old keys remain stored so verification of older tokens still works.
         """
         data = self._load()
+        keys = data["keys"]
+        active = data["active"]
 
         backend = get_backend(alg)
         kp = backend.generate_keypair(alg)
 
-        data["keys"][kp.kid] = self._kp_to_record(kp)
-        data["active"][alg] = kp.kid
+        # mark previous active as inactive
+        prev_active = active.get(alg)
+        if prev_active and prev_active in keys:
+            keys[prev_active]["status"] = "inactive"
+
+        keys[kp.kid] = self._kp_to_record(kp, status="active")
+        active[alg] = kp.kid
         self._save(data)
 
         return kp
@@ -129,11 +209,17 @@ class KeyStore:
                     "public_key_hex": rec["public_key"],
                     "public_key_len": len(pub),
                     "createdAt": rec.get("createdAt"),
+                    "status": rec.get("status"),
                     "is_active": active.get(rec["alg"]) == kid,
                 }
             )
 
-        return {"active": active, "keys": out}
+        return {
+            "schema_version": data.get("schema_version"),
+            "updatedAt": data.get("updatedAt"),
+            "active": active,
+            "keys": out,
+        }
 
 
 keystore = KeyStore(Path(settings.keystore_path))
