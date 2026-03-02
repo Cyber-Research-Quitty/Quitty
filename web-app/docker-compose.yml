@@ -1,0 +1,55 @@
+services:
+  auth:
+    build: ./auth
+    environment:
+      JWT_SECRET: dev-secret
+      JWT_ALGORITHM: HS256
+      ACCESS_TOKEN_TTL_MINUTES: 60
+      AUTH_DB_PATH: /data/auth.db
+    ports:
+      - '8001:8001'
+    volumes:
+      - auth_data:/data
+
+  db:
+    build: ./db
+    environment:
+      DATABASE_URL: sqlite:////data/cart.db
+    ports:
+      - '8002:8002'
+    volumes:
+      - cart_data:/data
+
+  cart:
+    build: ./cart
+    environment:
+      JWT_SECRET: dev-secret
+      JWT_ALGORITHM: HS256
+      DB_SERVICE_URL: http://db:8002
+    ports:
+      - '8003:8003'
+    depends_on:
+      - auth
+      - db
+
+  product:
+    build: ./product
+    ports:
+      - '8004:8004'
+
+  frontend:
+    build: ./frontend
+    environment:
+      NEXT_PUBLIC_AUTH_API_URL: http://localhost:8001
+      NEXT_PUBLIC_CART_API_URL: http://localhost:8003
+      NEXT_PUBLIC_PRODUCT_API_URL: http://localhost:8004
+    ports:
+      - '3000:3000'
+    depends_on:
+      - auth
+      - cart
+      - product
+
+volumes:
+  auth_data:
+  cart_data:
