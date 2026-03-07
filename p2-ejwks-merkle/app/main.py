@@ -69,7 +69,7 @@ def _startup() -> None:
 def health():
     return {"ok": True}
 
-@app.get("/jwks.json")
+@app.get("/jwks.json", deprecated=True)
 def legacy_jwks():
     keys = [rec.jwk for rec in store.list_all()]
     logger.debug(f"Served legacy JWKS with {len(keys)} keys")
@@ -104,7 +104,6 @@ def get_key_proof(kid: str):
         "latest_checkpoint_idx": latest_cp.idx if latest_cp else None,
     }
 
-
 def _normalize_import_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
     """
     Accept both:
@@ -115,6 +114,10 @@ def _normalize_import_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
         return payload["jwk"]
     return payload
 
+@app.get("/jwks/{kid}")
+def get_key_by_kid(kid: str):
+    # Alias endpoint for per-key retrieval in verifier microservices.
+    return get_key_proof(kid)
 
 @app.post("/internal/keys/import", response_model=ImportKeyOut)
 def import_key(payload: Dict[str, Any]):
