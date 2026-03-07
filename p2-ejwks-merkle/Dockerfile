@@ -31,7 +31,7 @@ RUN pip install --no-cache-dir -r /app/requirements.txt
 
 # Copy your code
 COPY app/ /app/app/
-COPY client_verify.py /app/client_verify.py
+COPY client-verify/client_verify.py /app/client_verify.py
 
 # Create a persistent data directory (will be mounted in K8s)
 RUN mkdir -p /data && chown -R appuser:appuser /data
