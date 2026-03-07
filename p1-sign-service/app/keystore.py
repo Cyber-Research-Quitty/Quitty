@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import json
 from pathlib import Path
 from typing import Any
@@ -15,6 +16,10 @@ SCHEMA_VERSION = 1
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _b64url(data: bytes) -> str:
+    return base64.urlsafe_b64encode(data).decode("ascii").rstrip("=")
 
 
 class KeyStore:
@@ -51,18 +56,15 @@ class KeyStore:
             # v0 -> v1 migration (non-breaking)
             data["schema_version"] = SCHEMA_VERSION
             data["updatedAt"] = _now_iso()
-            # add status field if missing (optional)
             self._apply_status_fields(data)
             self._save(data)  # persist migration immediately
         else:
             if data["schema_version"] != SCHEMA_VERSION:
                 raise ValueError(f"Unsupported keystore schema_version: {data['schema_version']}")
 
-            # keep updatedAt fresh on save, but ensure it exists
             if "updatedAt" not in data:
                 data["updatedAt"] = _now_iso()
 
-            # ensure status fields exist (optional self-heal)
             self._apply_status_fields(data)
 
         # self-heal: if active[alg] points to missing key, remove pointer
@@ -95,12 +97,13 @@ class KeyStore:
         keys = data.get("keys", {})
         active = data.get("active", {})
 
-        # Reset all to inactive first, then set active ones to active
-        for kid, rec in keys.items():
-            if isinstance(rec, dict) and "status" not in rec:
+        # Set all to inactive first
+        for _, rec in keys.items():
+            if isinstance(rec, dict):
                 rec["status"] = "inactive"
 
-        for alg, active_kid in active.items():
+        # Mark active ones
+        for _, active_kid in active.items():
             rec = keys.get(active_kid)
             if isinstance(rec, dict):
                 rec["status"] = "active"
@@ -201,12 +204,14 @@ class KeyStore:
         for kid, rec in items:
             if alg is not None and rec.get("alg") != alg:
                 continue
+
             pub = bytes.fromhex(rec["public_key"])
             out.append(
                 {
                     "kid": kid,
                     "alg": rec["alg"],
                     "public_key_hex": rec["public_key"],
+                    "public_key_b64u": _b64url(pub),
                     "public_key_len": len(pub),
                     "createdAt": rec.get("createdAt"),
                     "status": rec.get("status"),
@@ -219,6 +224,60 @@ class KeyStore:
             "updatedAt": data.get("updatedAt"),
             "active": active,
             "keys": out,
+        }
+
+    def jwks(self, alg: AlgName | None = None, include_all: bool = False) -> dict[str, Any]:
+        """
+        JWKS-like output for integration.
+        - include_all=False by default: returns only active keys
+        - PQC keys use custom fields (kty="PQC", pk is public key base64url)
+        """
+        data = self._load()
+        active = data.get("active", {})
+        keys = data.get("keys", {})
+
+        if include_all:
+            items = keys.items()
+        else:
+            active_kids = set(active.values())
+            items = ((kid, rec) for kid, rec in keys.items() if kid in active_kids)
+
+        jwk_list = []
+        for kid, rec in items:
+            if alg is not None and rec.get("alg") != alg:
+                continue
+
+            pub = bytes.fromhex(rec["public_key"])
+
+            if rec["alg"].startswith("ml-dsa"):
+                jwk = {
+                    "kty": "PQC",
+                    "use": "sig",
+                    "kid": kid,
+                    "alg": rec["alg"],
+                    "pk": _b64url(pub),
+                    "key_len": len(pub),
+                    "status": rec.get("status"),
+                }
+            else:
+                # For ed25519-dev, still keeping a JWKS-like shape
+                jwk = {
+                    "kty": "OKP",
+                    "crv": "Ed25519",
+                    "use": "sig",
+                    "kid": kid,
+                    "alg": rec["alg"],
+                    "x": _b64url(pub),
+                    "key_len": len(pub),
+                    "status": rec.get("status"),
+                }
+
+            jwk_list.append(jwk)
+
+        return {
+            "schema_version": data.get("schema_version"),
+            "updatedAt": data.get("updatedAt"),
+            "keys": jwk_list,
         }
 
 

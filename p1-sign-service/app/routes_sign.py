@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import time
+import uuid
 from typing import Any, Dict
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
@@ -14,6 +16,10 @@ from .crypto_backend import AlgName
 from .metrics import SIGN_LATENCY_SECONDS, P1_ERRORS_TOTAL
 
 router = APIRouter(prefix="/sign", tags=["sign"])
+
+
+def _now_unix() -> int:
+    return int(datetime.now(timezone.utc).timestamp())
 
 
 class SignRequest(BaseModel):
@@ -31,6 +37,16 @@ class SignResponse(BaseModel):
 
 @router.post("", response_model=SignResponse)
 def sign_token(body: SignRequest) -> SignResponse:
+    # Copy claims so we never mutate the original request object directly
+    claims = dict(body.claims)
+
+    # Auto-add integration-friendly claims
+    if "jti" not in claims:
+        claims["jti"] = str(uuid.uuid4())
+
+    if "iat" not in claims:
+        claims["iat"] = _now_unix()
+
     try:
         kp = keystore.get_active_key(body.alg)
     except Exception as e:
@@ -45,7 +61,7 @@ def sign_token(body: SignRequest) -> SignResponse:
 
     header = {"typ": "JWT", "alg": kp.alg, "kid": kp.kid}
     encoded_header = encode_header(header)
-    encoded_payload = encode_payload(body.claims)
+    encoded_payload = encode_payload(claims)
     signing_input = f"{encoded_header}.{encoded_payload}".encode("ascii")
 
     t0 = time.perf_counter()
