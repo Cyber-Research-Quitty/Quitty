@@ -38,7 +38,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(
         description="Verify a key from E-JWKS server using pinned root public key"
     )
-    ap.add_argument("--base-url", default="http://127.0.0.1:8100")
+    ap.add_argument("--base-url", default="http://127.0.0.1:8200")
     ap.add_argument("--kid", required=True, help="Key ID to verify")
     ap.add_argument(
         "--pinned-pub",

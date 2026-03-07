@@ -95,13 +95,13 @@ This document details all critical security and functionality fixes applied to t
 1. **Start the system:**
    ```bash
    docker compose up -d
-   # P2 API will be available at http://localhost:8100
+   # P2 API will be available at http://localhost:8200
    # Redis will be on port 6380 (avoids conflicts)
    ```
 
 2. **Import a test key:**
    ```bash
-   curl -X POST http://127.0.0.1:8100/internal/keys/import \
+   curl -X POST http://127.0.0.1:8200/internal/keys/import \
      -H "Content-Type: application/json" \
      -d '{
        "kid": "test-key-1",
@@ -119,7 +119,7 @@ This document details all critical security and functionality fixes applied to t
 
 4. **Test transparency log:**
    ```bash
-   curl http://127.0.0.1:8100/log/latest
+   curl http://127.0.0.1:8200/log/latest
    ```
 
 ---

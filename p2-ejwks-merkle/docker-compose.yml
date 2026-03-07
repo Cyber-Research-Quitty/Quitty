@@ -14,7 +14,7 @@ services:
   ejwks-api:
     build: .
     ports:
-      - "8100:8000"
+      - "8200:8000"
     environment:
       - REDIS_URL=redis://redis:6379/0
       - APP_DB_PATH=/data/keys.db

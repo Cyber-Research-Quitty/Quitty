@@ -54,9 +54,9 @@ Keep `web-app` unchanged and remap other stacks:
 | web db | `8002` | `8002` |
 | web cart | `8003` | `8003` |
 | web product | `8004` | `8004` |
-| ejwks-api | `8100` | `8000` |
+| ejwks-api | `8200` | `8000` |
 | ejwks redis | `6380` | `6379` |
-| revocation API | `8200` | `8000` |
+| revocation API | `8300` | `8000` |
 | revocation redis | `6381` | `6379` |
 | zookeeper | `2181` | `2181` |
 | kafka external | `29092` | `29092` |
@@ -66,12 +66,12 @@ Keep `web-app` unchanged and remap other stacks:
 Set these when running `guard-service` with the plan above:
 
 ```env
-REVOCATION_BASE_URL=http://127.0.0.1:8200
-JWKS_BASE_URL=http://127.0.0.1:8100
-SIGNER_BASE_URL=http://127.0.0.1:8300
+REVOCATION_BASE_URL=http://127.0.0.1:8300
+JWKS_BASE_URL=http://127.0.0.1:8200
+SIGNER_BASE_URL=http://127.0.0.1:8400
 ```
 
-Note: `8300` is only an example for P1 signer. If P1 runs on a different host port, use that value.
+Note: `8400` is only an example for P1 signer. If P1 runs on a different host port, use that value.
 
 ## 5) Optional Compose Overrides
 
@@ -82,15 +82,15 @@ Create overrides instead of editing original compose files:
 
 Example mappings to apply:
 
-- ejwks: `8100:8000`, `6380:6379`
+- ejwks: `8200:8000`, `6380:6379`
 - revocation infra: `6381:6379` (keep `2181:2181`, `29092:29092`)
-- revocation API (if containerized later): `8200:8000`
+- revocation API (if containerized later): `8300:8000`
 
 ## 6) Quick Port Check (Windows PowerShell)
 
 ```powershell
 Get-NetTCPConnection -State Listen |
-  Where-Object { $_.LocalPort -in 3000,8000,8001,8002,8003,8004,8100,8200,6379,6380,6381,2181,29092 } |
+  Where-Object { $_.LocalPort -in 3000,8000,8001,8002,8003,8004,8200,8300,8400,6379,6380,6381,2181,29092 } |
   Sort-Object LocalPort |
   Select-Object LocalAddress,LocalPort,OwningProcess
 ```
