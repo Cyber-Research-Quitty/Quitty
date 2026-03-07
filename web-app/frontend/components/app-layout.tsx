@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { ReactNode } from 'react';
 
 import { UserProfile } from './types';
-import { clearStoredToken } from '../lib/session';
+import { revokeAndClearStoredToken } from '../lib/session';
 
 type Props = {
   children: ReactNode;
@@ -81,8 +81,8 @@ export function AppLayout({ children, current, profile, cartCount = 0, status = 
   const router = useRouter();
   const pathname = usePathname();
 
-  function logout() {
-    clearStoredToken();
+  async function logout() {
+    await revokeAndClearStoredToken();
     router.replace('/');
     router.refresh();
   }

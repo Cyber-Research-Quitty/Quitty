@@ -2,14 +2,13 @@ import os
 from typing import Annotated, Optional
 
 import httpx
-import jwt
 from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-JWT_SECRET = os.getenv("JWT_SECRET", "dev-secret")
-JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 DB_SERVICE_URL = os.getenv("DB_SERVICE_URL", "http://db:8002")
+P3_VALIDATE_URL = os.getenv("P3_VALIDATE_URL", "http://host.docker.internal:8300/guard/validate")
+TOKEN_TIMEOUT_SECONDS = float(os.getenv("TOKEN_TIMEOUT_SECONDS", "5"))
 
 app = FastAPI(title="cart-service")
 app.add_middleware(
@@ -33,9 +32,26 @@ async def get_current_user(authorization: Annotated[Optional[str], Header()] = N
 
     token = authorization.split(" ", 1)[1]
     try:
-        return jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-    except jwt.PyJWTError as exc:
-        raise HTTPException(status_code=401, detail="Invalid token") from exc
+        async with httpx.AsyncClient(timeout=TOKEN_TIMEOUT_SECONDS) as client:
+            response = await client.get(
+                P3_VALIDATE_URL,
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            response.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code in (400, 401):
+            raise HTTPException(status_code=401, detail="Invalid token") from exc
+        raise HTTPException(status_code=503, detail="P3 guard unavailable") from exc
+    except httpx.RequestError as exc:
+        raise HTTPException(status_code=503, detail="P3 guard unavailable") from exc
+
+    body = response.json()
+    if not body.get("valid"):
+        raise HTTPException(status_code=401, detail="Invalid token")
+    claims = body.get("claims")
+    if not isinstance(claims, dict):
+        raise HTTPException(status_code=401, detail="Invalid token claims")
+    return claims
 
 
 @app.get("/health")

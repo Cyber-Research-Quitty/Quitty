@@ -27,6 +27,21 @@ export function clearStoredToken() {
   document.cookie = `${cookieKey}=; path=/; max-age=0; samesite=lax`;
 }
 
+export async function revokeAndClearStoredToken() {
+  const token = getStoredToken();
+  if (token) {
+    try {
+      await fetch(`${authApiUrl}/logout`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+    } catch {
+      // Always clear local token even if remote revoke fails.
+    }
+  }
+  clearStoredToken();
+}
+
 export function authHeaders(token: string): HeadersInit {
   return {
     Authorization: `Bearer ${token}`,

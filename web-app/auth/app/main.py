@@ -1,21 +1,27 @@
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
+import base64
 import hashlib
 import hmac
+import json
 import os
 import secrets
 import sqlite3
-from typing import Annotated, Optional
+from typing import Annotated, Any, Optional
 
-import jwt
+import httpx
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr
 
-JWT_SECRET = os.getenv("JWT_SECRET", "dev-secret")
-JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 ACCESS_TOKEN_TTL_MINUTES = int(os.getenv("ACCESS_TOKEN_TTL_MINUTES", "60"))
 AUTH_DB_PATH = os.getenv("AUTH_DB_PATH", "/data/auth.db")
+P1_SIGN_URL = os.getenv("P1_SIGN_URL", "http://host.docker.internal:8100/sign")
+P1_SIGN_ALG = os.getenv("P1_SIGN_ALG", "ed25519-dev")
+P3_VALIDATE_URL = os.getenv("P3_VALIDATE_URL", "http://host.docker.internal:8300/guard/validate")
+P4_REVOKE_URL = os.getenv("P4_REVOKE_URL", "http://host.docker.internal:8400/revoke")
+TOKEN_TIMEOUT_SECONDS = float(os.getenv("TOKEN_TIMEOUT_SECONDS", "5"))
+JWT_ISSUER = os.getenv("JWT_ISSUER", "p4-revocation-service")
 
 
 class LoginRequest(BaseModel):
@@ -120,11 +126,86 @@ def create_access_token(user: sqlite3.Row) -> dict:
         "email": user["email"],
         "name": user["name"],
         "role": user["role"],
+        "iss": JWT_ISSUER,
         "iat": int(now.timestamp()),
         "exp": int((now + timedelta(minutes=ACCESS_TOKEN_TTL_MINUTES)).timestamp()),
     }
-    token = jwt.encode(claims, JWT_SECRET, algorithm=JWT_ALGORITHM)
-    return {"access_token": token, "token_type": "bearer", "user": claims}
+    token, token_claims = sign_claims(claims)
+    return {"access_token": token, "token_type": "bearer", "user": token_claims}
+
+
+def decode_jwt_payload_unsafe(token: str) -> dict[str, Any]:
+    try:
+        parts = token.split(".")
+        if len(parts) != 3:
+            return {}
+        payload_segment = parts[1]
+        payload_segment += "=" * (-len(payload_segment) % 4)
+        payload_bytes = base64.urlsafe_b64decode(payload_segment.encode("ascii"))
+        payload = json.loads(payload_bytes.decode("utf-8"))
+        if isinstance(payload, dict):
+            return payload
+    except Exception:
+        return {}
+    return {}
+
+
+def sign_claims(claims: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+    try:
+        response = httpx.post(
+            P1_SIGN_URL,
+            json={"claims": claims, "alg": P1_SIGN_ALG},
+            timeout=TOKEN_TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=503, detail="Token signer unavailable") from exc
+
+    body = response.json()
+    token = body.get("token")
+    if not isinstance(token, str) or not token:
+        raise HTTPException(status_code=502, detail="Token signer returned malformed response")
+
+    signed_claims = decode_jwt_payload_unsafe(token)
+    if not signed_claims:
+        raise HTTPException(status_code=502, detail="Signed token payload is malformed")
+    return token, signed_claims
+
+
+def validate_token(token: str) -> dict[str, Any]:
+    try:
+        response = httpx.get(
+            P3_VALIDATE_URL,
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=TOKEN_TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code in (400, 401):
+            raise HTTPException(status_code=401, detail="Invalid token") from exc
+        raise HTTPException(status_code=503, detail="P3 guard unavailable") from exc
+    except httpx.RequestError as exc:
+        raise HTTPException(status_code=503, detail="P3 guard unavailable") from exc
+
+    body = response.json()
+    if not body.get("valid"):
+        raise HTTPException(status_code=401, detail="Invalid token")
+    claims = body.get("claims")
+    if not isinstance(claims, dict):
+        raise HTTPException(status_code=401, detail="Invalid token claims")
+    return claims
+
+
+def revoke_jti(jti: str) -> None:
+    try:
+        response = httpx.post(
+            P4_REVOKE_URL,
+            json={"type": "revoke_jti", "value": jti},
+            timeout=TOKEN_TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=503, detail="Revocation service unavailable") from exc
 
 
 def insert_user(payload: RegisterRequest, role: str = "member") -> sqlite3.Row:
@@ -212,12 +293,16 @@ def get_current_user(authorization: Annotated[Optional[str], Header()] = None) -
         raise HTTPException(status_code=401, detail="Missing bearer token")
 
     token = authorization.split(" ", 1)[1]
+    claims = validate_token(token)
+    sub = claims.get("sub")
+    if sub is None:
+        raise HTTPException(status_code=401, detail="Invalid token claims")
     try:
-        claims = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-    except jwt.PyJWTError as exc:
-        raise HTTPException(status_code=401, detail="Invalid token") from exc
+        user_id = int(sub)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=401, detail="Invalid token subject") from exc
 
-    user = get_user_by_email(claims["email"])
+    user = get_user_by_id(user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
     return user
@@ -249,11 +334,21 @@ def login(payload: LoginRequest) -> dict:
 
 @app.post("/verify")
 def verify(payload: VerifyRequest) -> dict:
-    try:
-        claims = jwt.decode(payload.token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-    except jwt.PyJWTError as exc:
-        raise HTTPException(status_code=401, detail="Invalid token") from exc
+    claims = validate_token(payload.token)
     return {"valid": True, "claims": claims}
+
+
+@app.post("/logout")
+def logout(authorization: Annotated[Optional[str], Header()] = None) -> dict:
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing bearer token")
+    token = authorization.split(" ", 1)[1]
+    claims = validate_token(token)
+    jti = claims.get("jti")
+    if not isinstance(jti, str) or not jti:
+        raise HTTPException(status_code=400, detail="Token has no jti")
+    revoke_jti(jti)
+    return {"revoked": True, "jti": jti}
 
 
 @app.get("/me")

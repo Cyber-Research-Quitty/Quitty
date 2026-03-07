@@ -22,5 +22,10 @@ Thumbs.db
 # P1 keystore (contains private keys) - NEVER COMMIT
 p1-sign-service/data/p1-keystore.json
 
+p2-ejwks-merkle/data/keys.db
+
 # P4 PQC keyring (contains private keys) - NEVER COMMIT
 revocation/pqc_keyring.json
+
+# Skip log files
+*.log
