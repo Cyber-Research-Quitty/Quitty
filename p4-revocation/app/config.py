@@ -22,3 +22,12 @@ JWT_ISSUER = os.getenv("JWT_ISSUER", "p4-revocation-service")
 # Refresh Token Configuration
 JWT_REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("JWT_REFRESH_TOKEN_EXPIRE_DAYS", "90"))
 REFRESH_TOKEN_TOPIC = os.getenv("REFRESH_TOKEN_TOPIC", "token-events")
+
+# Access-token issuance mode:
+# - "local": P4 signs access token locally (existing behavior)
+# - "p1": P4 calls P1 /sign and uses P1-signed token
+ACCESS_TOKEN_PROVIDER = os.getenv("ACCESS_TOKEN_PROVIDER", "local").strip().lower()
+P1_SIGN_BASE_URL = os.getenv("P1_SIGN_BASE_URL", "http://127.0.0.1:8100")
+P1_SIGN_PATH = os.getenv("P1_SIGN_PATH", "/sign")
+P1_SIGN_TIMEOUT_SECONDS = float(os.getenv("P1_SIGN_TIMEOUT_SECONDS", "3"))
+P1_ACCESS_TOKEN_ALG = os.getenv("P1_ACCESS_TOKEN_ALG", "ed25519-dev")

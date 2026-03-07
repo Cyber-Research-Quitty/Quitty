@@ -12,6 +12,11 @@ class RevokeResponse(BaseModel):
     event_id: str
     published: bool
 
+class RevocationStatusResponse(BaseModel):
+    jti: str
+    revoked: bool
+    revokedAt: Optional[str] = None
+
 
 # JWT Token Models
 class TokenRequest(BaseModel):

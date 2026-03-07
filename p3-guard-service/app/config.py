@@ -11,7 +11,7 @@ def _split_csv(value: str) -> list[str]:
 # P4 (Revocation) configuration
 # ----------------------
 
-REVOCATION_BASE_URL = os.getenv("REVOCATION_BASE_URL", "http://127.0.0.1:8200")
+REVOCATION_BASE_URL = os.getenv("REVOCATION_BASE_URL", "http://127.0.0.1:8400")
 REVOCATION_CHECK_PATHS = _split_csv(os.getenv("REVOCATION_CHECK_PATHS", "/v1/revocations"))
 REVOCATION_TIMEOUT_SECONDS = float(os.getenv("REVOCATION_TIMEOUT_SECONDS", "3"))
 
@@ -20,7 +20,7 @@ REVOCATION_TIMEOUT_SECONDS = float(os.getenv("REVOCATION_TIMEOUT_SECONDS", "3"))
 # P2 (JWKS) configuration
 # ----------------------
 
-JWKS_BASE_URL = os.getenv("JWKS_BASE_URL", "http://127.0.0.1:8100")
+JWKS_BASE_URL = os.getenv("JWKS_BASE_URL", "http://127.0.0.1:8200")
 
 JWKS_PATHS = _split_csv(
     os.getenv("JWKS_PATHS", "/jwks.json")
@@ -35,7 +35,7 @@ JWKS_TIMEOUT_SECONDS = float(os.getenv("JWKS_TIMEOUT_SECONDS", "3"))
 # P1 (Signer) configuration
 # ----------------------
 
-SIGNER_BASE_URL = os.getenv("SIGNER_BASE_URL", "http://127.0.0.1:8001")
+SIGNER_BASE_URL = os.getenv("SIGNER_BASE_URL", "http://127.0.0.1:8100")
 
 SIGNER_VERIFY_PATHS = _split_csv(
     os.getenv("SIGNER_VERIFY_PATHS", "/v1/jwt/verify,/verify")

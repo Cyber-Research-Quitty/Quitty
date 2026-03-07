@@ -7,16 +7,16 @@ services:
     ports:
       - "8300:8000"
     environment:
-      JWKS_BASE_URL: ${JWKS_BASE_URL:-http://host.docker.internal:8100}
+      JWKS_BASE_URL: ${JWKS_BASE_URL:-http://host.docker.internal:8200}
       JWKS_PATHS: ${JWKS_PATHS:-/jwks.json}
       JWKS_CACHE_TTL_SECONDS: ${JWKS_CACHE_TTL_SECONDS:-60}
       JWKS_TIMEOUT_SECONDS: ${JWKS_TIMEOUT_SECONDS:-3}
 
-      SIGNER_BASE_URL: ${SIGNER_BASE_URL:-http://host.docker.internal:8001}
+      SIGNER_BASE_URL: ${SIGNER_BASE_URL:-http://host.docker.internal:8100}
       SIGNER_VERIFY_PATHS: ${SIGNER_VERIFY_PATHS:-/verify}
       SIGNER_TIMEOUT_SECONDS: ${SIGNER_TIMEOUT_SECONDS:-3}
 
-      REVOCATION_BASE_URL: ${REVOCATION_BASE_URL:-http://host.docker.internal:8200}
+      REVOCATION_BASE_URL: ${REVOCATION_BASE_URL:-http://host.docker.internal:8400}
       REVOCATION_CHECK_PATHS: ${REVOCATION_CHECK_PATHS:-/v1/revocations}
       REVOCATION_TIMEOUT_SECONDS: ${REVOCATION_TIMEOUT_SECONDS:-3}
 

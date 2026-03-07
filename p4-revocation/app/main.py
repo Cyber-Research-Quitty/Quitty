@@ -4,21 +4,24 @@ import uuid
 import secrets
 from datetime import datetime, timezone, timedelta
 from typing import Optional
+import base64
 
 import redis.asyncio as redis
 from fastapi import FastAPI, HTTPException
 
 from .config import (
     REDIS_URL, PQC_SIGNING_KEY_ID, JWT_ACCESS_TOKEN_EXPIRE_MINUTES,
-    JWT_REFRESH_TOKEN_EXPIRE_DAYS
+    JWT_REFRESH_TOKEN_EXPIRE_DAYS, ACCESS_TOKEN_PROVIDER,
+    P1_ACCESS_TOKEN_ALG, JWT_ISSUER
 )
 from .store_sqlite import (
     init_sqlite, insert_event, insert_refresh_token,
-    revoke_refresh_token, insert_token_event
+    revoke_refresh_token, insert_token_event, get_latest_revocation_ts
 )
 from .pqc_crypto import canonical_bytes, dilithium_sign, generate_kyber_keypair
 from .kafka_pub import start_producer, publish_event, publish_token_event
 from .jwt_utils import create_access_token, validate_token, get_token_claims, is_token_revoked
+from .p1_client import p1_signer_client
 from .refresh_token_utils import (
     create_refresh_token, perform_kyber_refresh,
     get_refresh_token_claims
@@ -26,6 +29,7 @@ from .refresh_token_utils import (
 from .models import (
     RevokeRequest,
     RevokeResponse,
+    RevocationStatusResponse,
     TokenRequest,
     TokenResponse,
     TokenValidateRequest,
@@ -47,6 +51,108 @@ def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _decode_unverified_claims(token: str) -> dict:
+    try:
+        parts = token.split(".")
+        if len(parts) != 3:
+            return {}
+        payload_segment = parts[1]
+        payload_segment += "=" * (-len(payload_segment) % 4)
+        payload_bytes = base64.urlsafe_b64decode(payload_segment.encode("ascii"))
+        claims = json.loads(payload_bytes.decode("utf-8"))
+        return claims if isinstance(claims, dict) else {}
+    except Exception:
+        return {}
+
+
+async def issue_access_token(
+    subject: str,
+    expires_minutes: Optional[int] = None,
+    additional_claims: Optional[dict] = None
+) -> tuple[str, dict]:
+    now = datetime.now(timezone.utc)
+    expiry_minutes = expires_minutes or JWT_ACCESS_TOKEN_EXPIRE_MINUTES
+    exp_ts = int((now + timedelta(minutes=expiry_minutes)).timestamp())
+    iat_ts = int(now.timestamp())
+
+    claims = {
+        "sub": subject,
+        "exp": exp_ts,
+        "iat": iat_ts,
+        "iss": JWT_ISSUER,
+        "type": "access",
+    }
+    if additional_claims:
+        claims.update(additional_claims)
+
+    if ACCESS_TOKEN_PROVIDER == "local":
+        token = create_access_token(
+            subject=subject,
+            additional_claims=additional_claims,
+            expires_delta=timedelta(minutes=expiry_minutes),
+        )
+        decoded = get_token_claims(token)
+        return token, decoded
+
+    token = await p1_signer_client.sign_access_token(claims=claims, alg=P1_ACCESS_TOKEN_ALG)
+    decoded = _decode_unverified_claims(token)
+    if not decoded:
+        raise HTTPException(status_code=502, detail="P1 returned malformed JWT payload")
+    return token, decoded
+
+
+async def validate_access_token_provider_aware(
+    token: str,
+    check_revocation: bool,
+) -> dict:
+    """
+    Validate access token according to configured provider mode.
+    - local: P4 local JWT validation
+    - p1: signature validation delegated to P1 /verify, then claims checks in P4
+    """
+    global rds
+
+    if ACCESS_TOKEN_PROVIDER == "local":
+        return await validate_token(
+            token=token,
+            redis_client=rds,
+            check_revocation=check_revocation,
+        )
+
+    claims = _decode_unverified_claims(token)
+    if not claims:
+        raise HTTPException(status_code=401, detail="Invalid token format")
+
+    if check_revocation:
+        is_revoked, reason = await is_token_revoked(claims, rds)
+        if is_revoked:
+            if reason == "sub":
+                detail = "Token has been revoked (all tokens for this subject are revoked)"
+            elif reason == "kid":
+                detail = "Token has been revoked (all tokens for this key are revoked)"
+            else:
+                detail = "Token has been revoked"
+            raise HTTPException(status_code=401, detail=detail)
+
+    verify_result = await p1_signer_client.verify_access_token(token)
+    if not bool(verify_result.get("valid")):
+        reason = verify_result.get("error") or verify_result.get("reason") or "signature_invalid"
+        raise HTTPException(status_code=401, detail=f"Invalid token: {reason}")
+
+    exp = claims.get("exp")
+    now_ts = int(datetime.now(timezone.utc).timestamp())
+    if not isinstance(exp, int):
+        raise HTTPException(status_code=401, detail="Invalid token: missing or invalid exp")
+    if exp < now_ts:
+        raise HTTPException(status_code=401, detail="Token has expired")
+
+    iss = claims.get("iss")
+    if not isinstance(iss, str) or iss != JWT_ISSUER:
+        raise HTTPException(status_code=401, detail="Invalid token issuer")
+
+    return claims
+
+
 # -------------------------
 # Startup / Shutdown
 # -------------------------
@@ -65,6 +171,7 @@ async def shutdown():
         await producer.stop()
     if rds:
         await rds.close()
+    await p1_signer_client.close()
 
 
 # -------------------------
@@ -80,6 +187,24 @@ async def root():
 async def health():
     # this is the route you were testing
     return {"ok": True}
+
+
+@app.get("/v1/revocations/{jti}", response_model=RevocationStatusResponse)
+async def get_revocation_status(jti: str):
+    """
+    P3-compatible revocation lookup endpoint.
+    Returns whether this token jti is currently revoked.
+    """
+    global rds
+    if not rds:
+        raise HTTPException(status_code=503, detail="Service not ready")
+
+    revoked = await rds.get(f"revoked:jti:{jti}")
+    if not revoked:
+        return RevocationStatusResponse(jti=jti, revoked=False, revokedAt=None)
+
+    revoked_at = get_latest_revocation_ts("revoke_jti", jti)
+    return RevocationStatusResponse(jti=jti, revoked=True, revokedAt=revoked_at)
 
 
 @app.post("/revoke", response_model=RevokeResponse)
@@ -136,20 +261,12 @@ async def create_token(req: TokenRequest):
     if not rds:
         raise HTTPException(status_code=503, detail="Service not ready")
     
-    # Calculate expiration delta if custom expiration is provided
-    expires_delta = None
-    if req.expires_minutes:
-        expires_delta = timedelta(minutes=req.expires_minutes)
-    
-    # Create the access token
-    token = create_access_token(
+    token, claims = await issue_access_token(
         subject=req.subject,
+        expires_minutes=req.expires_minutes,
         additional_claims=req.additional_claims,
-        expires_delta=expires_delta
     )
-    
-    # Decode to get the JTI and expiration
-    claims = get_token_claims(token)
+
     jti = claims.get("jti")
     exp = claims.get("exp")
     
@@ -181,11 +298,10 @@ async def validate_token_endpoint(req: TokenValidateRequest):
         raise HTTPException(status_code=503, detail="Service not ready")
     
     try:
-        # Validate the token (signature, expiration, issuer)
-        payload = await validate_token(
+        # Validate the token (signature, expiration, issuer, revocation)
+        payload = await validate_access_token_provider_aware(
             token=req.token,
-            redis_client=rds,
-            check_revocation=req.check_revocation
+            check_revocation=req.check_revocation,
         )
         
         return TokenValidateResponse(
@@ -311,12 +427,16 @@ async def create_refresh_token_endpoint(req: RefreshTokenRequest):
     refresh_jti = refresh_claims.get("jti")
     refresh_exp = refresh_claims.get("exp")
     
-    # Create access token
-    access_token = create_access_token(
+    if not refresh_jti:
+        raise HTTPException(status_code=500, detail="Failed to create refresh token")
+
+    # Create access token (local or via P1 based on configuration)
+    access_additional_claims = dict(req.additional_claims or {})
+    access_additional_claims["refresh_jti"] = refresh_jti
+    access_token, access_claims = await issue_access_token(
         subject=req.subject,
-        additional_claims=req.additional_claims
+        additional_claims=access_additional_claims,
     )
-    access_claims = get_token_claims(access_token)
     access_jti = access_claims.get("jti")
     access_exp = access_claims.get("exp")
     
@@ -444,11 +564,10 @@ async def refresh_token_endpoint(req: RefreshTokenRefreshRequest):
         raise HTTPException(status_code=500, detail="Failed to rotate refresh token")
 
     # Create new access token linked to the new refresh token
-    access_token = create_access_token(
+    access_token, access_claims = await issue_access_token(
         subject=subject,
         additional_claims={"refresh_jti": new_refresh_jti, "prev_refresh_jti": old_refresh_jti}
     )
-    access_claims = get_token_claims(access_token)
     access_jti = access_claims.get("jti")
     access_exp = access_claims.get("exp")
 

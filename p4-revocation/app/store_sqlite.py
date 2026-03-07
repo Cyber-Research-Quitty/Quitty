@@ -133,3 +133,25 @@ def insert_token_event(
     )
     conn.commit()
     conn.close()
+
+
+def get_latest_revocation_ts(
+    revocation_type: str,
+    value: str,
+    db_path: Optional[str] = None
+) -> Optional[str]:
+    """Return latest revocation event timestamp for type+value."""
+    path = db_path or SQLITE_PATH
+    conn = sqlite3.connect(path)
+    row = conn.execute(
+        """
+        SELECT ts
+        FROM revocation_events
+        WHERE type = ? AND value = ?
+        ORDER BY ts DESC
+        LIMIT 1
+        """,
+        (revocation_type, value),
+    ).fetchone()
+    conn.close()
+    return row[0] if row else None

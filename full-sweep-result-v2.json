@@ -1,0 +1,201 @@
+{
+  "checks": [
+    {
+      "name": "p1_health",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "p2_health",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "p3_health",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "p3_pytest_21cases",
+      "ok": true,
+      "detail": "executed separately: 21 passed"
+    },
+    {
+      "name": "p1_metrics",
+      "ok": true,
+      "detail": "status=200"
+    },
+    {
+      "name": "p1_public",
+      "ok": true,
+      "detail": "status=200"
+    },
+    {
+      "name": "p1_jwks",
+      "ok": true,
+      "detail": "status=200"
+    },
+    {
+      "name": "p1_sign",
+      "ok": true,
+      "detail": "status=200"
+    },
+    {
+      "name": "p1_verify_valid",
+      "ok": true,
+      "detail": "status=200"
+    },
+    {
+      "name": "p1_verify_invalid",
+      "ok": true,
+      "detail": "status=200"
+    },
+    {
+      "name": "p1_export",
+      "ok": false,
+      "detail": "status=400 body={'detail': 'p2_export_url_not_configured'}"
+    },
+    {
+      "name": "p1_rotate",
+      "ok": true,
+      "detail": "status=200"
+    },
+    {
+      "name": "p2_jwks_json",
+      "ok": true,
+      "detail": "status=200"
+    },
+    {
+      "name": "p2_jwks_root",
+      "ok": true,
+      "detail": "status=200"
+    },
+    {
+      "name": "p2_import",
+      "ok": true,
+      "detail": "status=200"
+    },
+    {
+      "name": "p2_proof",
+      "ok": true,
+      "detail": "status=200"
+    },
+    {
+      "name": "p2_jwks_kid",
+      "ok": true,
+      "detail": "status=200"
+    },
+    {
+      "name": "p2_log_root",
+      "ok": true,
+      "detail": "status=200"
+    },
+    {
+      "name": "p2_log_latest",
+      "ok": true,
+      "detail": "status=200"
+    },
+    {
+      "name": "p2_log_checkpoint",
+      "ok": true,
+      "detail": "status=200"
+    },
+    {
+      "name": "p3_metrics",
+      "ok": true,
+      "detail": "status=200"
+    },
+    {
+      "name": "p3_guard_noauth",
+      "ok": true,
+      "detail": "status=401"
+    },
+    {
+      "name": "p4_health",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "p4_root",
+      "ok": true,
+      "detail": "status=200"
+    },
+    {
+      "name": "p4_token",
+      "ok": true,
+      "detail": "status=200"
+    },
+    {
+      "name": "p4_token_validate_p1_mode",
+      "ok": false,
+      "detail": "status=200 body={'valid': False, 'claims': {'sub': 'p4-user', 'exp': 1772910407, 'iat': 1772908607, 'iss': 'p4-revocation-service', 'type': 'access', 'jti': '50be302e-b5d0-4e3f-831b-a516dcc127f6'}, 'revoked': False, 'message': 'Invalid token: The specified alg value is not allowed'}"
+    },
+    {
+      "name": "p4_token_inspect",
+      "ok": true,
+      "detail": "status=200"
+    },
+    {
+      "name": "p4_refresh_create",
+      "ok": true,
+      "detail": "status=200"
+    },
+    {
+      "name": "p4_refresh_link_create",
+      "ok": true,
+      "detail": "refresh=3daa7c9c-d67c-4396-b01e-f17fd08794a3 access.refresh=3daa7c9c-d67c-4396-b01e-f17fd08794a3"
+    },
+    {
+      "name": "p4_refresh_rotate",
+      "ok": true,
+      "detail": "status=200"
+    },
+    {
+      "name": "p4_refresh_link_rotate_new",
+      "ok": true,
+      "detail": "new=7b53fd98-c559-4cee-b2c6-648d21a86ed8 access.refresh=7b53fd98-c559-4cee-b2c6-648d21a86ed8"
+    },
+    {
+      "name": "p4_refresh_link_rotate_prev",
+      "ok": true,
+      "detail": "old=3daa7c9c-d67c-4396-b01e-f17fd08794a3 access.prev=3daa7c9c-d67c-4396-b01e-f17fd08794a3"
+    },
+    {
+      "name": "p4_revoke",
+      "ok": true,
+      "detail": "status=200"
+    },
+    {
+      "name": "p4_revocation_lookup",
+      "ok": true,
+      "detail": "status=200"
+    },
+    {
+      "name": "p4_local_health",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "p4_token_validate_local_mode",
+      "ok": true,
+      "detail": "status=200 body={'valid': True, 'claims': {'sub': 'local-u', 'exp': 1772910408, 'iat': 1772908608, 'iss': 'p4-revocation-service', 'jti': '30645ff6-aa10-4ce0-a16d-818ee44528ae', 'type': 'access'}, 'revoked': False, 'message': 'Token is valid and not revoked'}"
+    }
+  ],
+  "summary": {
+    "total": 36,
+    "passed": 34,
+    "failed": 2,
+    "failed_checks": [
+      {
+        "name": "p1_export",
+        "ok": false,
+        "detail": "status=400 body={'detail': 'p2_export_url_not_configured'}"
+      },
+      {
+        "name": "p4_token_validate_p1_mode",
+        "ok": false,
+        "detail": "status=200 body={'valid': False, 'claims': {'sub': 'p4-user', 'exp': 1772910407, 'iat': 1772908607, 'iss': 'p4-revocation-service', 'type': 'access', 'jti': '50be302e-b5d0-4e3f-831b-a516dcc127f6'}, 'revoked': False, 'message': 'Invalid token: The specified alg value is not allowed'}"
+      }
+    ]
+  }
+}

@@ -10,8 +10,8 @@ services:
       ENVIRONMENT: dev
       DEFAULT_ALG: ed25519-dev
       KEYSTORE_PATH: data/p1-keystore.json
-      # Optional P2 integration endpoint, leave empty if not used.
-      P2_EXPORT_URL: ${P2_EXPORT_URL:-}
+      # Default wired to local P2 host port for out-of-box export from containerized P1.
+      P2_EXPORT_URL: ${P2_EXPORT_URL:-http://host.docker.internal:8200/internal/keys/import}
       P2_TIMEOUT_SECONDS: 3.0
     volumes:
       # Persist generated signing keys on the host.
