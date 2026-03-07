@@ -1,8 +1,10 @@
 from __future__ import annotations
 import os
 import logging
+from typing import Any, Dict
 from fastapi import FastAPI, HTTPException
 from dotenv import load_dotenv
+from pydantic import ValidationError
 from redis import Redis
 
 from .schemas import JWKIn, ImportKeyOut
@@ -67,7 +69,7 @@ def _startup() -> None:
 def health():
     return {"ok": True}
 
-@app.get("/jwks.json")
+@app.get("/jwks.json", deprecated=True)
 def legacy_jwks():
     keys = [rec.jwk for rec in store.list_all()]
     logger.debug(f"Served legacy JWKS with {len(keys)} keys")
@@ -102,14 +104,38 @@ def get_key_proof(kid: str):
         "latest_checkpoint_idx": latest_cp.idx if latest_cp else None,
     }
 
+def _normalize_import_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Accept both:
+    - canonical import payload: top-level JWK fields
+    - legacy wrapped payload: {"jwk": {...}, ...}
+    """
+    if isinstance(payload.get("jwk"), dict):
+        return payload["jwk"]
+    return payload
+
+@app.get("/jwks/{kid}")
+def get_key_by_kid(kid: str):
+    # Alias endpoint for per-key retrieval in verifier microservices.
+    return get_key_proof(kid)
+
 @app.post("/internal/keys/import", response_model=ImportKeyOut)
-def import_key(jwk: JWKIn):
+def import_key(payload: Dict[str, Any]):
+    try:
+        normalized = _normalize_import_payload(payload)
+        jwk = JWKIn.model_validate(normalized)
+    except ValidationError as e:
+        raise HTTPException(status_code=422, detail=e.errors())
+
     kid = jwk.kid
     logger.info(f"Importing key: kid={kid}, kty={jwk.kty}")
     try:
-        result = svc.import_key(jwk.model_dump())
+        result = svc.import_key(jwk.model_dump(exclude_none=True))
         logger.info(f"Key imported successfully: kid={kid}, jkt={result['jkt']}")
         return result
+    except ValueError as e:
+        logger.warning(f"Invalid import payload for kid={kid}: {e}")
+        raise HTTPException(status_code=400, detail=f"Invalid key payload: {str(e)}")
     except Exception as e:
         logger.error(f"Failed to import key {kid}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Import failed: {str(e)}")

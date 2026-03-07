@@ -33,6 +33,14 @@ class ExportRequest(BaseModel):
     )
 
 
+def _resolve_export_jwk(alg: AlgName, kid: str) -> dict:
+    jwks_data = keystore.jwks(alg=alg, include_all=True)
+    jwk_match = next((k for k in jwks_data["keys"] if k["kid"] == kid), None)
+    if not jwk_match:
+        raise HTTPException(status_code=500, detail="failed_to_build_jwk_for_kid")
+    return jwk_match
+
+
 @router.post("/export")
 def export_to_p2(body: ExportRequest):
     if not settings.p2_export_url:
@@ -46,20 +54,10 @@ def export_to_p2(body: ExportRequest):
     if not kp:
         raise HTTPException(status_code=404, detail="kid_not_found")
 
-    pub_b64u = keystore.jwks(alg=body.alg, include_all=True)
-    jwk_match = next((k for k in pub_b64u["keys"] if k["kid"] == kp.kid), None)
-
-    payload = {
-        "kid": kp.kid,
-        "alg": kp.alg,
-        "public_key_hex": kp.public_key.hex(),
-        "public_key_b64u": jwk_match["pk"] if jwk_match and "pk" in jwk_match else jwk_match["x"] if jwk_match and "x" in jwk_match else None,
-        "public_key_len": len(kp.public_key),
-        "jwk": jwk_match,
-    }
+    export_jwk = _resolve_export_jwk(body.alg, kp.kid)
 
     try:
-        resp = post_json(settings.p2_export_url, payload, timeout_seconds=settings.p2_timeout_seconds)
+        resp = post_json(settings.p2_export_url, export_jwk, timeout_seconds=settings.p2_timeout_seconds)
     except P2ClientError as e:
         raise HTTPException(status_code=502, detail=str(e))
 
@@ -67,6 +65,7 @@ def export_to_p2(body: ExportRequest):
         "exported": True,
         "kid": kp.kid,
         "alg": kp.alg,
+        "jwk": export_jwk,
         "p2_response": resp,
     }
 
@@ -89,20 +88,10 @@ def rotate_key(body: RotateRequest):
             # rotation works even if export is not configured
             exported = False
         else:
-            jwks_data = keystore.jwks(alg=body.alg, include_all=True)
-            jwk_match = next((k for k in jwks_data["keys"] if k["kid"] == kp.kid), None)
-
-            payload = {
-                "kid": kp.kid,
-                "alg": kp.alg,
-                "public_key_hex": kp.public_key.hex(),
-                "public_key_b64u": jwk_match["pk"] if jwk_match and "pk" in jwk_match else jwk_match["x"] if jwk_match and "x" in jwk_match else None,
-                "public_key_len": len(kp.public_key),
-                "jwk": jwk_match,
-            }
+            export_jwk = _resolve_export_jwk(body.alg, kp.kid)
 
             try:
-                p2_resp = post_json(settings.p2_export_url, payload, timeout_seconds=settings.p2_timeout_seconds)
+                p2_resp = post_json(settings.p2_export_url, export_jwk, timeout_seconds=settings.p2_timeout_seconds)
                 exported = True
             except P2ClientError as e:
                 raise HTTPException(status_code=502, detail=f"rotated_but_export_failed: {e}")

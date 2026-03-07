@@ -23,13 +23,15 @@ def canonical_json(obj: Any) -> bytes:
 def jwk_thumbprint(jwk: Dict[str, Any]) -> str:
     """
     RFC 7638 thumbprint (subset depends on kty).
-    Supports OKP and RSA; falls back to public fields for others.
+    Supports OKP, RSA, and PQC; falls back to public fields for others.
     """
     kty = jwk.get("kty")
     if kty == "OKP":
         thumb_obj = {"crv": jwk["crv"], "kty": "OKP", "x": jwk["x"]}
     elif kty == "RSA":
         thumb_obj = {"e": jwk["e"], "kty": "RSA", "n": jwk["n"]}
+    elif kty == "PQC":
+        thumb_obj = {"alg": jwk["alg"], "kty": "PQC", "pk": jwk["pk"]}
     else:
         thumb_obj = {k: v for k, v in jwk.items() if k not in {"d","p","q","dp","dq","qi","oth"}}
         thumb_obj["kty"] = kty
