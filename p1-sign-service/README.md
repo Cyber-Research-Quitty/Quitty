@@ -26,7 +26,7 @@ Stop and remove container:
 docker compose down
 ```
 
-The API is exposed on `http://localhost:8001`.
+The API is exposed on `http://localhost:8100`.
 
 ## Configuration
 
@@ -46,7 +46,7 @@ Notes:
 ## Quick Health Check
 
 ```bash
-curl http://localhost:8001/health
+curl http://localhost:8100/health
 ```
 
 Expected response includes:
@@ -59,7 +59,7 @@ Expected response includes:
 ### 1) Sign a token
 
 ```bash
-curl -X POST http://localhost:8001/sign \
+curl -X POST http://localhost:8100/sign \
   -H "Content-Type: application/json" \
   -d '{"claims":{"sub":"alice","role":"user"},"alg":"ed25519-dev"}'
 ```
@@ -69,7 +69,7 @@ curl -X POST http://localhost:8001/sign \
 Use the token from step 1:
 
 ```bash
-curl -X POST http://localhost:8001/verify \
+curl -X POST http://localhost:8100/verify \
   -H "Content-Type: application/json" \
   -d '{"token":"<PASTE_TOKEN_HERE>"}'
 ```
