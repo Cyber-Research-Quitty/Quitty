@@ -7,7 +7,7 @@ services:
       ACCESS_TOKEN_TTL_MINUTES: 60
       AUTH_DB_PATH: /data/auth.db
     ports:
-      - '8001:8001'
+      - '8005:8005'
     volumes:
       - auth_data:/data
 
@@ -40,7 +40,7 @@ services:
   frontend:
     build: ./frontend
     environment:
-      NEXT_PUBLIC_AUTH_API_URL: http://localhost:8001
+      NEXT_PUBLIC_AUTH_API_URL: http://localhost:8005
       NEXT_PUBLIC_CART_API_URL: http://localhost:8003
       NEXT_PUBLIC_PRODUCT_API_URL: http://localhost:8004
     ports:
