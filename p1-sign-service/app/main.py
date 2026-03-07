@@ -2,12 +2,15 @@ import time
 
 from fastapi import FastAPI, Request
 from fastapi.responses import PlainTextResponse
+from fastapi.middleware.cors import CORSMiddleware
 from prometheus_client import generate_latest
 
 from .config import settings
 from .routes_sign import router as sign_router
 from .routes_verify import router as verify_router
 from .metrics import HTTP_REQUESTS_TOTAL, HTTP_REQUEST_LATENCY_SECONDS
+from .routes_integration import router as integration_router
+
 
 app = FastAPI(
     title=settings.app_name,
@@ -15,8 +18,18 @@ app = FastAPI(
     description="P1 service: PQC JWT sign & verify (ML-DSA-44/65).",
 )
 
+# CORS for demo web app / browser-based integration
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(sign_router)
 app.include_router(verify_router)
+app.include_router(integration_router)
 
 
 @app.middleware("http")
@@ -37,7 +50,6 @@ async def prometheus_middleware(request: Request, call_next):
 
 @app.get("/metrics", response_class=PlainTextResponse, tags=["internal"])
 def metrics():
-    # Prometheus scraping endpoint
     return PlainTextResponse(generate_latest().decode("utf-8"))
 
 

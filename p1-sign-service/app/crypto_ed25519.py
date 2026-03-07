@@ -10,13 +10,6 @@ from .crypto_backend import CryptoBackend, KeyPair, AlgName, derive_kid
 
 
 class Ed25519Backend(CryptoBackend):
-    """
-    Development-only crypto backend using Ed25519.
-
-    This lets us build and test the P1 service end-to-end before
-    plugging in the real Dilithium (ml-dsa-44 / ml-dsa-65) backend.
-    """
-
     SUPPORTED: set[AlgName] = {"ed25519-dev"}
 
     def generate_keypair(self, alg: AlgName) -> KeyPair:
@@ -37,13 +30,7 @@ class Ed25519Backend(CryptoBackend):
         )
 
         kid = derive_kid(pub_bytes)
-
-        return KeyPair(
-            alg=alg,
-            kid=kid,
-            public_key=pub_bytes,
-            private_key=priv_bytes,
-        )
+        return KeyPair(alg=alg, kid=kid, public_key=pub_bytes, private_key=priv_bytes)
 
     def sign(self, alg: AlgName, private_key: bytes, data: bytes) -> bytes:
         if alg not in self.SUPPORTED:

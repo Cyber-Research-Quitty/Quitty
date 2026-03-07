@@ -1,0 +1,31 @@
+services:
+  p1-sign-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: p1-sign-service
+    ports:
+      - "8001:8001"
+    environment:
+      ENVIRONMENT: dev
+      DEFAULT_ALG: ed25519-dev
+      KEYSTORE_PATH: data/p1-keystore.json
+      # Optional P2 integration endpoint, leave empty if not used.
+      P2_EXPORT_URL: ""
+      P2_TIMEOUT_SECONDS: 3.0
+    volumes:
+      # Persist generated signing keys on the host.
+      - ./data:/app/data
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health', timeout=2).read()",
+        ]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
