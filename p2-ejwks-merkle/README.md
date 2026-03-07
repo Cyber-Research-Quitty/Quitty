@@ -7,7 +7,7 @@ pip install -r requirements.txt
 cp .env.example .env
 
 docker compose up -d
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --port 8100
 
 
 
@@ -15,7 +15,7 @@ uvicorn app.main:app --reload --port 8000
 Test with curl
 Import a key
 
-curl -X POST http://127.0.0.1:8000/internal/keys/import \
+curl -X POST http://127.0.0.1:8100/internal/keys/import \
   -H "Content-Type: application/json" \
   -d '{
     "kid": "demo-ed25519-1",
@@ -28,16 +28,16 @@ curl -X POST http://127.0.0.1:8000/internal/keys/import \
 
 Get Signed root
 
-curl http://127.0.0.1:8000/jwks/root
+curl http://127.0.0.1:8100/jwks/root
 
 Get key + proof
 
-curl http://127.0.0.1:8000/jwks/proof/demo-ed25519-1
+curl http://127.0.0.1:8100/jwks/proof/demo-ed25519-1
 
 
 Client verification
 
-python client_verify.py --kid demo-ed25519-1 --base-url http://127.0.0.1:8000
+python client_verify.py --kid demo-ed25519-1 --base-url http://127.0.0.1:8100
 
 --------------------------
 8) How to connect this to your P1 Sign Service (real integration)
@@ -52,7 +52,7 @@ P1 exports public key → P2 imports it
 
 P1 (sign-service) generates new keypair, then calls:
 
-POST http://p2-jwks:8000/internal/keys/import
+POST http://p2-jwks:8100/internal/keys/import
 
 body = public JWK with kid, kty, alg, and the public material (x for OKP / n,e for RSA / your PQC encoding fields)
 

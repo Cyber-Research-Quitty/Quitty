@@ -20,7 +20,7 @@ docker compose up -d
 docker compose logs -f ejwks-api
 
 # Check health
-curl http://localhost:8000/health
+curl http://localhost:8100/health
 ```
 
 ### Option 2: Local Development
@@ -32,7 +32,7 @@ docker compose up -d redis
 pip install -r requirements.txt
 
 # Run the API
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --port 8100
 ```
 
 ---
@@ -41,7 +41,7 @@ uvicorn app.main:app --reload --port 8000
 
 ### 1. Import a Key
 
-curl -X POST http://localhost:8000/internal/keys/import \
+curl -X POST http://localhost:8100/internal/keys/import \
   -H "Content-Type: application/json" \
   -d '{
     "kid": "demo-dilithium-1",
@@ -52,12 +52,12 @@ curl -X POST http://localhost:8000/internal/keys/import \
 
 ### 2. Get JWKS Root
 ```bash
-curl http://localhost:8000/jwks/root | jq
+curl http://localhost:8100/jwks/root | jq
 ```
 
 ### 3. Get Key with Proof
 ```bash
-curl http://localhost:8000/jwks/proof/my-key-1 | jq
+curl http://localhost:8100/jwks/proof/my-key-1 | jq
 ```
 
 ### 4. Verify Key (Client-Side)
@@ -68,10 +68,10 @@ python client_verify.py --kid my-key-1
 ### 5. Check Transparency Log
 ```bash
 # Get latest checkpoint
-curl http://localhost:8000/log/latest | jq
+curl http://localhost:8100/log/latest | jq
 
 # Get specific checkpoint
-curl http://localhost:8000/log/checkpoint/1 | jq
+curl http://localhost:8100/log/checkpoint/1 | jq
 ```
 
 ---
@@ -81,7 +81,7 @@ curl http://localhost:8000/log/checkpoint/1 | jq
 ### Test 1: Response Schema (Fixed Issue #1)
 ```bash
 # This should now return "root" instead of "jwks_root"
-curl http://localhost:8000/jwks/proof/my-key-1 | jq '.root'
+curl http://localhost:8100/jwks/proof/my-key-1 | jq '.root'
 ```
 
 ### Test 2: Client Verification (Fixed Issue #8)
@@ -93,7 +93,7 @@ python client_verify.py --kid my-key-1
 ### Test 3: Input Validation (Fixed Issue #4)
 ```bash
 # This should fail with validation error
-curl -X POST http://localhost:8000/internal/keys/import \
+curl -X POST http://localhost:8100/internal/keys/import \
   -H "Content-Type: application/json" \
   -d '{
     "kid": "invalid!@#$%^&*()",

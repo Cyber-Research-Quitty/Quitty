@@ -16,7 +16,7 @@ jwk_payload = {
     "use": "sig"
 }
 
-url = "http://localhost:8000/internal/keys/import"
+url = "http://localhost:8100/internal/keys/import"
 
 print("=" * 60)
 print("Testing /internal/keys/import with REAL Dilithium2 key")
@@ -51,7 +51,7 @@ try:
         print(f"Response: {response.text}")
         
 except requests.exceptions.ConnectionError:
-    print("\n❌ ERROR: Could not connect to http://localhost:8000")
+    print("\n❌ ERROR: Could not connect to http://localhost:8100")
     print("Make sure the EJWKS service is running:")
     print("  docker compose up -d")
     print("  OR")

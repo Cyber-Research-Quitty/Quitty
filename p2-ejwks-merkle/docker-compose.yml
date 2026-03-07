@@ -2,7 +2,7 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      - "6380:6379"
     volumes:
       - redis-data:/data
     healthcheck:
@@ -14,7 +14,7 @@ services:
   ejwks-api:
     build: .
     ports:
-      - "8000:8000"
+      - "8100:8000"
     environment:
       - REDIS_URL=redis://redis:6379/0
       - APP_DB_PATH=/data/keys.db
