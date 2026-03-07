@@ -1,5 +1,5 @@
 from __future__ import annotations
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 from typing import Optional, List, Dict, Any, Literal
 
 class JWKIn(BaseModel):
@@ -14,6 +14,9 @@ class JWKIn(BaseModel):
     # RSA
     n: Optional[str] = None
     e: Optional[str] = None
+
+    # PQC (custom JWK-like field used by P1)
+    pk: Optional[str] = None
 
     use: Optional[str] = None
     key_ops: Optional[List[str]] = None
@@ -33,10 +36,25 @@ class JWKIn(BaseModel):
     @field_validator('kty')
     @classmethod
     def validate_kty(cls, v: str) -> str:
-        valid_ktys = ['OKP', 'RSA', 'EC', 'oct']
+        valid_ktys = ['OKP', 'RSA', 'EC', 'oct', 'PQC']
         if v not in valid_ktys:
             raise ValueError(f'kty must be one of {valid_ktys}')
         return v
+
+    @model_validator(mode="after")
+    def validate_required_fields(self) -> "JWKIn":
+        if self.kty == "OKP":
+            if not self.crv or not self.x:
+                raise ValueError("OKP keys require both 'crv' and 'x'")
+        elif self.kty == "RSA":
+            if not self.n or not self.e:
+                raise ValueError("RSA keys require both 'n' and 'e'")
+        elif self.kty == "PQC":
+            if not self.pk:
+                raise ValueError("PQC keys require 'pk'")
+            if not self.alg:
+                raise ValueError("PQC keys require 'alg'")
+        return self
 
 class ImportKeyOut(BaseModel):
     kid: str
