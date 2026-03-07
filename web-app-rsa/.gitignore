@@ -1,0 +1,17 @@
+.DS_Store
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Local databases
+*.db
+
+# Next.js
+frontend/node_modules/
+frontend/.next/
+
+# Logs
+*.log
+npm-debug.log*
