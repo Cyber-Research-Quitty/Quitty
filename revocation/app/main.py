@@ -7,21 +7,20 @@ from typing import Optional
 
 import redis.asyncio as redis
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field
 
 from .config import (
     REDIS_URL, PQC_SIGNING_KEY_ID, JWT_ACCESS_TOKEN_EXPIRE_MINUTES,
     JWT_REFRESH_TOKEN_EXPIRE_DAYS
 )
 from .store_sqlite import (
-    init_sqlite, insert_event, insert_refresh_token, update_refresh_token_usage,
+    init_sqlite, insert_event, insert_refresh_token,
     revoke_refresh_token, insert_token_event
 )
 from .pqc_crypto import canonical_bytes, dilithium_sign, generate_kyber_keypair
 from .kafka_pub import start_producer, publish_event, publish_token_event
 from .jwt_utils import create_access_token, validate_token, get_token_claims, is_token_revoked
 from .refresh_token_utils import (
-    create_refresh_token, validate_refresh_token, perform_kyber_refresh,
+    create_refresh_token, perform_kyber_refresh,
     get_refresh_token_claims
 )
 from .models import (
@@ -406,7 +405,7 @@ async def refresh_token_endpoint(req: RefreshTokenRefreshRequest):
     - **client_binding**: Current client identifier (must match original)
     - **client_public_key**: Client's Kyber KEM public key for forward secrecy
     
-    Returns new access token and Kyber KEM ciphertext for client-side decapsulation.
+    Returns new access token, rotated refresh token, and Kyber KEM ciphertext.
     """
     global rds, producer
     if not rds or not producer:
@@ -414,10 +413,10 @@ async def refresh_token_endpoint(req: RefreshTokenRefreshRequest):
     
     event_id = str(uuid.uuid4())
     ts = utc_now_iso()
-    
+
     # Perform Kyber-based refresh
     try:
-        new_token_payload, kem_ciphertext, encrypted_session_key = await perform_kyber_refresh(
+        _, kem_ciphertext, encrypted_session_key = await perform_kyber_refresh(
             refresh_token=req.refresh_token,
             client_binding=req.client_binding,
             client_public_key=req.client_public_key,
@@ -425,70 +424,127 @@ async def refresh_token_endpoint(req: RefreshTokenRefreshRequest):
         )
     except HTTPException:
         raise
-    
-    # Get refresh token claims
+
+    # Validate current refresh token identity before rotating
     refresh_claims = get_refresh_token_claims(req.refresh_token)
-    refresh_jti = refresh_claims.get("jti")
+    old_refresh_jti = refresh_claims.get("jti")
     subject = refresh_claims.get("sub")
-    
-    # Create new access token
+    if not old_refresh_jti or not subject:
+        raise HTTPException(status_code=400, detail="Invalid refresh token claims")
+
+    # Rotate refresh token: issue a brand-new one bound to the same client binding
+    new_refresh_token, client_hash = create_refresh_token(
+        subject=subject,
+        client_binding=req.client_binding,
+    )
+    new_refresh_claims = get_refresh_token_claims(new_refresh_token)
+    new_refresh_jti = new_refresh_claims.get("jti")
+    new_refresh_exp = new_refresh_claims.get("exp")
+    if not new_refresh_jti:
+        raise HTTPException(status_code=500, detail="Failed to rotate refresh token")
+
+    # Create new access token linked to the new refresh token
     access_token = create_access_token(
         subject=subject,
-        additional_claims={"refresh_jti": refresh_jti}
+        additional_claims={"refresh_jti": new_refresh_jti, "prev_refresh_jti": old_refresh_jti}
     )
     access_claims = get_token_claims(access_token)
     access_jti = access_claims.get("jti")
     access_exp = access_claims.get("exp")
-    
-    # Calculate expiration
+
+    # Calculate expiration windows
     if access_exp:
         expires_in = int(access_exp - datetime.now(timezone.utc).timestamp())
     else:
         expires_in = JWT_ACCESS_TOKEN_EXPIRE_MINUTES * 60
-    
-    # Update refresh token last used timestamp
-    update_refresh_token_usage(refresh_jti, ts)
-    
-    # Update Redis cache
-    refresh_redis_key = f"refresh_token:{refresh_jti}"
-    cached_data = await rds.get(refresh_redis_key)
-    if cached_data:
-        # Update last used in cache
-        import json
-        data = json.loads(cached_data)
-        data["last_used"] = ts
-        await rds.setex(refresh_redis_key, JWT_REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60, json.dumps(data))
-    
-    # Publish refresh event to Kafka
+
+    if new_refresh_exp:
+        refresh_expires_in = int(new_refresh_exp - datetime.now(timezone.utc).timestamp())
+        new_refresh_expires_at = datetime.fromtimestamp(new_refresh_exp, tz=timezone.utc).isoformat()
+    else:
+        refresh_expires_in = JWT_REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
+        new_refresh_expires_at = (
+            datetime.now(timezone.utc) + timedelta(days=JWT_REFRESH_TOKEN_EXPIRE_DAYS)
+        ).isoformat()
+
+    # Revoke previous refresh token in audit + cache
+    revoke_refresh_token(old_refresh_jti, ts)
+    await rds.set(f"revoked:jti:{old_refresh_jti}", "1")
+    await rds.delete(f"refresh_token:{old_refresh_jti}")
+
+    # Persist and cache rotated refresh token
+    insert_refresh_token(
+        token_id=new_refresh_jti,
+        subject=subject,
+        client_hash=client_hash,
+        kyber_public_key=req.client_public_key,
+        created_at=ts,
+        expires_at=new_refresh_expires_at,
+    )
+    await rds.setex(
+        f"refresh_token:{new_refresh_jti}",
+        refresh_expires_in,
+        json.dumps({
+            "subject": subject,
+            "client_hash": client_hash,
+            "rotated_from": old_refresh_jti,
+            "last_used": ts,
+        })
+    )
+
+    # Publish a formal revocation event for old refresh token
+    revoke_event_id = str(uuid.uuid4())
+    revoke_unsigned = {
+        "event_id": revoke_event_id,
+        "type": "revoke_jti",
+        "value": old_refresh_jti,
+        "ts": ts,
+        "nonce": secrets.token_urlsafe(16),
+        "kid": PQC_SIGNING_KEY_ID,
+    }
+    revoke_sig = dilithium_sign(canonical_bytes(revoke_unsigned))
+    revoke_event = dict(revoke_unsigned)
+    revoke_event["sig"] = revoke_sig
+    insert_event(revoke_event)
+    await publish_event(producer, canonical_bytes(revoke_event))
+
+    # Publish token rotation event to Kafka
     refresh_event = {
         "event_id": event_id,
-        "event_type": "token_refreshed",
-        "token_id": refresh_jti,
+        "event_type": "refresh_token_rotated",
+        "token_id": old_refresh_jti,
+        "new_token_id": new_refresh_jti,
         "subject": subject,
+        "client_hash": client_hash,
         "new_access_jti": access_jti,
         "ts": ts,
         "nonce": secrets.token_urlsafe(16),
         "kid": PQC_SIGNING_KEY_ID,
     }
     refresh_event["sig"] = dilithium_sign(canonical_bytes(refresh_event))
-    
+
     # Audit log
     insert_token_event(
         event_id=event_id,
-        event_type="token_refreshed",
-        token_id=refresh_jti,
+        event_type="refresh_token_rotated",
+        token_id=old_refresh_jti,
         subject=subject,
         ts=ts,
-        data=json.dumps({"new_access_jti": access_jti}),
+        data=json.dumps({
+            "new_token_id": new_refresh_jti,
+            "new_access_jti": access_jti,
+        }),
         published=True
     )
-    
+
     # Publish to Kafka
     await publish_token_event(producer, canonical_bytes(refresh_event))
-    
+
     return RefreshTokenRefreshResponse(
         access_token=access_token,
-        refresh_token=None,  # Token rotation can be added later
+        refresh_token=new_refresh_token,
+        refresh_jti=new_refresh_jti,
+        refresh_expires_in=refresh_expires_in,
         token_type="bearer",
         expires_in=expires_in,
         kem_ciphertext=kem_ciphertext,

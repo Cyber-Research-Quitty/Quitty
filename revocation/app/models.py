@@ -71,6 +71,8 @@ class RefreshTokenRefreshRequest(BaseModel):
 class RefreshTokenRefreshResponse(BaseModel):
     access_token: str
     refresh_token: Optional[str] = Field(None, description="New refresh token (if rotated)")
+    refresh_jti: Optional[str] = Field(None, description="New refresh token JTI (if rotated)")
+    refresh_expires_in: Optional[int] = Field(None, description="Seconds until new refresh token expires")
     token_type: str = "bearer"
     expires_in: int
     kem_ciphertext: str = Field(..., description="Kyber KEM ciphertext (base64url)")

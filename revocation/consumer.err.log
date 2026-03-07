@@ -1,0 +1,384 @@
+2026-03-07 13:33:55,959 INFO revocation.consumer: Starting consumer
+2026-03-07 13:33:55,959 INFO revocation.consumer: Subscribing to topics: revocations, token-events
+2026-03-07 13:33:55,959 INFO revocation.consumer: Kafka bootstrap: localhost:29092
+2026-03-07 13:33:55,959 INFO revocation.consumer: Consumer group: revocation-consumers
+2026-03-07 13:33:55,959 INFO revocation.consumer: Offset reset: latest
+2026-03-07 13:33:55,959 INFO aiokafka.consumer.subscription_state: Updating subscribed topics to: frozenset({'revocations', 'token-events'})
+2026-03-07 13:33:56,005 INFO aiokafka.consumer.group_coordinator: Discovered coordinator 1 for group revocation-consumers
+2026-03-07 13:33:56,005 INFO aiokafka.consumer.group_coordinator: Revoking previously assigned partitions set() for group revocation-consumers
+2026-03-07 13:33:56,005 INFO aiokafka.consumer.group_coordinator: (Re-)joining group revocation-consumers
+2026-03-07 13:33:59,015 INFO aiokafka.consumer.group_coordinator: Joined group 'revocation-consumers' (generation 3) with member_id aiokafka-0.10.0-661d9bb1-26d8-489b-8472-8e314c0a1d81
+2026-03-07 13:33:59,015 INFO aiokafka.consumer.group_coordinator: Elected group leader -- performing partition assignments using roundrobin
+2026-03-07 13:33:59,020 INFO aiokafka.consumer.group_coordinator: Successfully synced group revocation-consumers with generation 3
+2026-03-07 13:33:59,020 INFO aiokafka.consumer.group_coordinator: Setting newly assigned partitions {TopicPartition(topic='revocations', partition=0), TopicPartition(topic='token-events', partition=0)} for group revocation-consumers
+2026-03-07 13:33:59,020 INFO revocation.consumer: Consumer started; waiting for messages
+2026-03-07 13:34:52,053 INFO revocation.consumer: Revocation cached: jti=19d8d594-0053-4899-97be-2782b89e33f7
+2026-03-07 13:34:52,064 INFO revocation.consumer: Refresh token cached: token_id=5b5e64b3-e172-4698-95f8-87ec3ace046a subject=alice
+2026-03-07 13:34:52,114 INFO revocation.consumer: Revocation cached: jti=5b5e64b3-e172-4698-95f8-87ec3ace046a
+2026-03-07 13:34:52,120 INFO revocation.consumer: Refresh token rotated: old=5b5e64b3-e172-4698-95f8-87ec3ace046a new=de1726d4-e04e-43bb-8a2d-2c9a87213d32 access_jti=bd18ce10-b3e8-4a20-881b-629fbc9d3336
+2026-03-07 13:38:47,435 INFO revocation.consumer: Revocation cached: jti=string
+2026-03-07 13:41:33,277 INFO revocation.consumer: Revocation cached: jti=string
+2026-03-07 13:42:17,939 INFO revocation.consumer: Refresh token cached: token_id=c49b303a-0a45-4535-8089-c04d525d9e2f subject=string123
+2026-03-07 13:43:48,742 INFO revocation.consumer: Revocation cached: jti=c49b303a-0a45-4535-8089-c04d525d9e2f
+2026-03-07 13:43:48,752 INFO revocation.consumer: Refresh token rotated: old=c49b303a-0a45-4535-8089-c04d525d9e2f new=4eb67066-0539-42f1-ac01-702f4b71d0e4 access_jti=bb2ddcbf-b7ec-4c7d-8b2e-e1833af1c306
+2026-03-07 13:45:12,155 INFO revocation.consumer: Revocation cached: jti=4eb67066-0539-42f1-ac01-702f4b71d0e4
+2026-03-07 13:45:12,159 INFO revocation.consumer: Refresh token revoked: token_id=4eb67066-0539-42f1-ac01-702f4b71d0e4
+2026-03-07 13:54:16,024 WARNING aiokafka.consumer.group_coordinator: Heartbeat failed for group revocation-consumers because it is rebalancing
+2026-03-07 13:54:16,028 INFO aiokafka.consumer.group_coordinator: Revoking previously assigned partitions frozenset({TopicPartition(topic='revocations', partition=0), TopicPartition(topic='token-events', partition=0)}) for group revocation-consumers
+2026-03-07 13:54:16,028 INFO aiokafka.consumer.group_coordinator: (Re-)joining group revocation-consumers
+2026-03-07 13:54:16,036 INFO aiokafka.consumer.group_coordinator: Joined group 'revocation-consumers' (generation 4) with member_id aiokafka-0.10.0-661d9bb1-26d8-489b-8472-8e314c0a1d81
+2026-03-07 13:54:16,036 INFO aiokafka.consumer.group_coordinator: Elected group leader -- performing partition assignments using roundrobin
+2026-03-07 13:54:16,040 INFO aiokafka.consumer.group_coordinator: Successfully synced group revocation-consumers with generation 4
+2026-03-07 13:54:16,040 INFO aiokafka.consumer.group_coordinator: Setting newly assigned partitions {TopicPartition(topic='token-events', partition=0)} for group revocation-consumers
+2026-03-07 13:54:43,749 ERROR aiokafka.consumer.fetcher: Failed fetch messages from 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:54:43,754 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:54:43,754 ERROR aiokafka: Unable to update metadata from [1]
+2026-03-07 13:54:43,856 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:54:43,856 ERROR aiokafka.consumer.fetcher: Failed fetch messages from 1: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:54:43,863 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:54:43,863 ERROR aiokafka: Unable to update metadata from [1]
+2026-03-07 13:54:43,965 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:54:43,965 ERROR aiokafka.consumer.fetcher: Failed fetch messages from 1: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:54:43,970 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:54:43,971 ERROR aiokafka: Unable to update metadata from [1]
+2026-03-07 13:54:44,081 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:54:44,081 ERROR aiokafka.consumer.fetcher: Failed fetch messages from 1: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:54:44,090 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:54:44,090 ERROR aiokafka: Unable to update metadata from [1]
+2026-03-07 13:54:44,198 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:54:44,198 ERROR aiokafka.consumer.fetcher: Failed fetch messages from 1: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:54:44,206 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:54:44,206 ERROR aiokafka: Unable to update metadata from [1]
+2026-03-07 13:54:44,314 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:54:44,315 ERROR aiokafka.consumer.fetcher: Failed fetch messages from 1: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:54:44,322 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:54:44,322 ERROR aiokafka: Unable to update metadata from [1]
+2026-03-07 13:54:44,437 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:54:44,438 ERROR aiokafka.consumer.fetcher: Failed fetch messages from 1: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:54:44,440 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:54:44,440 ERROR aiokafka: Unable to update metadata from [1]
+2026-03-07 13:54:44,552 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:54:44,552 ERROR aiokafka.consumer.fetcher: Failed fetch messages from 1: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:54:44,556 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:54:44,556 ERROR aiokafka: Unable to update metadata from [1]
+2026-03-07 13:54:44,745 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:54:44,745 ERROR aiokafka.consumer.fetcher: Failed fetch messages from 1: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:54:44,754 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:54:44,755 ERROR aiokafka: Unable to update metadata from [1]
+2026-03-07 13:54:44,914 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:54:44,914 ERROR aiokafka.consumer.group_coordinator: Error sending OffsetCommitRequest_v2 to node 1 [NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).] -- marking coordinator dead
+2026-03-07 13:54:44,915 WARNING aiokafka.consumer.group_coordinator: Marking the coordinator dead (node 1)for group revocation-consumers.
+2026-03-07 13:54:44,915 WARNING aiokafka.consumer.group_coordinator: Auto offset commit failed: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:54:44,925 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:54:44,925 ERROR aiokafka: Unable to update metadata from [1]
+2026-03-07 13:54:44,933 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:54:44,933 ERROR aiokafka.consumer.group_coordinator: Group Coordinator Request failed: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:54:44,940 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:54:44,941 ERROR aiokafka: Unable to update metadata from [1]
+2026-03-07 13:54:45,050 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:54:45,051 ERROR aiokafka.consumer.group_coordinator: Group Coordinator Request failed: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:54:45,055 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:54:45,055 ERROR aiokafka.consumer.fetcher: Failed fetch messages from 1: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:54:45,059 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:54:45,059 ERROR aiokafka: Unable to update metadata from [1]
+2026-03-07 13:54:45,176 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:54:45,176 ERROR aiokafka.consumer.group_coordinator: Group Coordinator Request failed: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:54:45,183 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:54:45,183 ERROR aiokafka.consumer.fetcher: Failed fetch messages from 1: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:54:45,187 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:54:45,187 ERROR aiokafka: Unable to update metadata from [1]
+2026-03-07 13:54:45,289 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:54:45,289 ERROR aiokafka.consumer.group_coordinator: Group Coordinator Request failed: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:54:45,299 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:54:45,299 ERROR aiokafka.consumer.fetcher: Failed fetch messages from 1: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:54:45,306 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:54:45,306 ERROR aiokafka: Unable to update metadata from [1]
+2026-03-07 13:54:45,423 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:54:45,424 ERROR aiokafka.consumer.group_coordinator: Group Coordinator Request failed: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:54:45,432 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:54:45,432 ERROR aiokafka.consumer.fetcher: Failed fetch messages from 1: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:54:45,438 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:54:45,438 ERROR aiokafka: Unable to update metadata from [1]
+2026-03-07 13:55:20,313 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:20,313 ERROR aiokafka.consumer.group_coordinator: Group Coordinator Request failed: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:20,321 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:20,323 ERROR aiokafka.consumer.fetcher: Failed fetch messages from 1: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:20,328 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:20,329 ERROR aiokafka: Unable to update metadata from [1]
+2026-03-07 13:55:20,439 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:20,439 ERROR aiokafka.consumer.group_coordinator: Group Coordinator Request failed: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:20,443 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:20,444 ERROR aiokafka.consumer.fetcher: Failed fetch messages from 1: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:20,449 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:20,449 ERROR aiokafka: Unable to update metadata from [1]
+2026-03-07 13:55:20,565 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:20,566 ERROR aiokafka.consumer.group_coordinator: Group Coordinator Request failed: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:20,569 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:20,569 ERROR aiokafka.consumer.fetcher: Failed fetch messages from 1: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:20,573 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:20,573 ERROR aiokafka: Unable to update metadata from [1]
+2026-03-07 13:55:20,682 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:20,682 ERROR aiokafka.consumer.group_coordinator: Group Coordinator Request failed: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:20,685 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:20,686 ERROR aiokafka.consumer.fetcher: Failed fetch messages from 1: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:20,697 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:20,697 ERROR aiokafka: Unable to update metadata from [1]
+2026-03-07 13:55:20,795 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:20,795 ERROR aiokafka.consumer.group_coordinator: Group Coordinator Request failed: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:20,799 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:20,799 ERROR aiokafka.consumer.fetcher: Failed fetch messages from 1: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:20,803 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:20,803 ERROR aiokafka: Unable to update metadata from [1]
+2026-03-07 13:55:20,917 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:20,917 ERROR aiokafka.consumer.group_coordinator: Group Coordinator Request failed: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:20,922 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:20,923 ERROR aiokafka.consumer.fetcher: Failed fetch messages from 1: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:20,928 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:20,928 ERROR aiokafka: Unable to update metadata from [1]
+2026-03-07 13:55:21,043 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:21,043 ERROR aiokafka.consumer.group_coordinator: Group Coordinator Request failed: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:21,049 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:21,049 ERROR aiokafka.consumer.fetcher: Failed fetch messages from 1: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:21,055 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:21,056 ERROR aiokafka: Unable to update metadata from [1]
+2026-03-07 13:55:21,166 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:21,166 ERROR aiokafka.consumer.group_coordinator: Group Coordinator Request failed: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:21,172 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:21,172 ERROR aiokafka.consumer.fetcher: Failed fetch messages from 1: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:21,179 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:21,180 ERROR aiokafka: Unable to update metadata from [1]
+2026-03-07 13:55:21,303 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:21,303 ERROR aiokafka.consumer.group_coordinator: Group Coordinator Request failed: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:21,310 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:21,311 ERROR aiokafka.consumer.fetcher: Failed fetch messages from 1: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:21,317 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:21,318 ERROR aiokafka: Unable to update metadata from [1]
+2026-03-07 13:55:21,429 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:21,429 ERROR aiokafka.consumer.group_coordinator: Group Coordinator Request failed: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:21,435 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:21,436 ERROR aiokafka.consumer.fetcher: Failed fetch messages from 1: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:21,442 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:21,443 ERROR aiokafka: Unable to update metadata from [1]
+2026-03-07 13:55:21,538 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:21,538 ERROR aiokafka.consumer.fetcher: Failed fetch messages from 1: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:21,544 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:21,544 ERROR aiokafka.consumer.group_coordinator: Group Coordinator Request failed: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:21,550 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:21,551 ERROR aiokafka: Unable to update metadata from [1]
+2026-03-07 13:55:21,651 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:21,651 ERROR aiokafka.consumer.group_coordinator: Group Coordinator Request failed: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:21,658 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:21,658 ERROR aiokafka.consumer.fetcher: Failed fetch messages from 1: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:21,664 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:21,665 ERROR aiokafka: Unable to update metadata from [1]
+2026-03-07 13:55:21,780 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:21,780 ERROR aiokafka.consumer.group_coordinator: Group Coordinator Request failed: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:21,781 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:21,785 ERROR aiokafka.consumer.fetcher: Failed fetch messages from 1: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:21,790 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:21,790 ERROR aiokafka: Unable to update metadata from [1]
+2026-03-07 13:55:21,902 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:21,902 ERROR aiokafka.consumer.group_coordinator: Group Coordinator Request failed: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:21,908 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:21,908 ERROR aiokafka.consumer.fetcher: Failed fetch messages from 1: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:21,912 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:21,912 ERROR aiokafka: Unable to update metadata from [1]
+2026-03-07 13:55:22,021 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:22,021 ERROR aiokafka.consumer.group_coordinator: Group Coordinator Request failed: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:22,024 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:22,024 ERROR aiokafka.consumer.fetcher: Failed fetch messages from 1: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:22,026 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:22,027 ERROR aiokafka: Unable to update metadata from [1]
+2026-03-07 13:55:22,144 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:22,145 ERROR aiokafka.consumer.group_coordinator: Group Coordinator Request failed: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:22,149 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:22,149 ERROR aiokafka.consumer.fetcher: Failed fetch messages from 1: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:22,150 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:22,151 ERROR aiokafka: Unable to update metadata from [1]
+2026-03-07 13:55:22,261 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:22,261 ERROR aiokafka.consumer.group_coordinator: Group Coordinator Request failed: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:22,264 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:22,264 ERROR aiokafka.consumer.fetcher: Failed fetch messages from 1: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:22,267 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:22,267 ERROR aiokafka: Unable to update metadata from [1]
+2026-03-07 13:55:22,355 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:22,355 ERROR aiokafka.consumer.fetcher: Failed fetch messages from 1: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:22,358 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:22,358 ERROR aiokafka: Unable to update metadata from [1]
+2026-03-07 13:55:22,384 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:22,384 ERROR aiokafka.consumer.group_coordinator: Group Coordinator Request failed: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:22,389 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:22,390 ERROR aiokafka: Unable to update metadata from [1]
+2026-03-07 13:55:22,463 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:22,463 ERROR aiokafka.consumer.fetcher: Failed fetch messages from 1: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:22,466 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:22,466 ERROR aiokafka: Unable to update metadata from [1]
+2026-03-07 13:55:22,494 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:22,494 ERROR aiokafka.consumer.group_coordinator: Group Coordinator Request failed: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:22,496 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:22,496 ERROR aiokafka: Unable to update metadata from [1]
+2026-03-07 13:55:22,573 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:22,574 ERROR aiokafka.consumer.fetcher: Failed fetch messages from 1: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:22,591 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:22,591 ERROR aiokafka: Unable to update metadata from [1]
+2026-03-07 13:55:22,596 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:22,596 ERROR aiokafka.consumer.group_coordinator: Group Coordinator Request failed: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:22,599 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:22,599 ERROR aiokafka: Unable to update metadata from [1]
+2026-03-07 13:55:22,688 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:22,688 ERROR aiokafka.consumer.fetcher: Failed fetch messages from 1: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:22,691 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:22,691 ERROR aiokafka.consumer.group_coordinator: Group Coordinator Request failed: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:22,691 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:22,691 ERROR aiokafka: Unable to update metadata from [1]
+2026-03-07 13:55:22,797 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:22,797 ERROR aiokafka.consumer.group_coordinator: Group Coordinator Request failed: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:22,800 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:22,800 ERROR aiokafka.consumer.fetcher: Failed fetch messages from 1: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:22,803 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:22,803 ERROR aiokafka: Unable to update metadata from [1]
+2026-03-07 13:55:22,909 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:22,910 ERROR aiokafka.consumer.group_coordinator: Group Coordinator Request failed: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:22,913 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:22,913 ERROR aiokafka.consumer.fetcher: Failed fetch messages from 1: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:22,917 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:22,917 ERROR aiokafka: Unable to update metadata from [1]
+2026-03-07 13:55:23,036 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:23,036 ERROR aiokafka.consumer.group_coordinator: Group Coordinator Request failed: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:23,040 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:23,040 ERROR aiokafka.consumer.fetcher: Failed fetch messages from 1: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:23,043 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:23,043 ERROR aiokafka: Unable to update metadata from [1]
+2026-03-07 13:55:23,151 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:23,152 ERROR aiokafka.consumer.group_coordinator: Group Coordinator Request failed: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:23,155 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:23,155 ERROR aiokafka.consumer.fetcher: Failed fetch messages from 1: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:23,160 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:23,160 ERROR aiokafka: Unable to update metadata from [1]
+2026-03-07 13:55:23,265 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:23,265 ERROR aiokafka.consumer.group_coordinator: Group Coordinator Request failed: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:23,271 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:23,271 ERROR aiokafka.consumer.fetcher: Failed fetch messages from 1: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:23,277 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:23,277 ERROR aiokafka: Unable to update metadata from [1]
+2026-03-07 13:55:23,384 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:23,384 ERROR aiokafka.consumer.group_coordinator: Group Coordinator Request failed: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:23,388 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:23,388 ERROR aiokafka.consumer.fetcher: Failed fetch messages from 1: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:23,391 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:23,392 ERROR aiokafka: Unable to update metadata from [1]
+2026-03-07 13:55:23,490 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:23,490 ERROR aiokafka.consumer.group_coordinator: Group Coordinator Request failed: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:23,494 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:23,494 ERROR aiokafka.consumer.fetcher: Failed fetch messages from 1: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:55:23,498 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:55:23,498 ERROR aiokafka: Unable to update metadata from [1]
+2026-03-07 13:55:23,668 ERROR aiokafka.consumer.group_coordinator: Group Coordinator Request failed: [Error 15] GroupCoordinatorNotAvailableError
+2026-03-07 13:55:23,752 WARNING aiokafka.cluster: Topic token-events is not available during auto-create initialization
+2026-03-07 13:55:23,752 WARNING aiokafka.cluster: Topic revocations is not available during auto-create initialization
+2026-03-07 13:55:23,752 INFO aiokafka.consumer.group_coordinator: Metadata for topic has changed from {'revocations': 1, 'token-events': 1} to {'revocations': 0, 'token-events': 0}. 
+2026-03-07 13:55:23,754 ERROR aiokafka.cluster: Topic revocations not found in cluster metadata
+2026-03-07 13:55:23,754 ERROR aiokafka.cluster: Topic token-events not found in cluster metadata
+2026-03-07 13:55:23,755 ERROR aiokafka.cluster: Topic revocations not found in cluster metadata
+2026-03-07 13:55:23,755 ERROR aiokafka.cluster: Topic token-events not found in cluster metadata
+2026-03-07 13:55:23,757 ERROR aiokafka.cluster: Topic revocations not found in cluster metadata
+2026-03-07 13:55:23,757 ERROR aiokafka.cluster: Topic token-events not found in cluster metadata
+2026-03-07 13:55:23,759 ERROR aiokafka.cluster: Topic revocations not found in cluster metadata
+2026-03-07 13:55:23,759 ERROR aiokafka.cluster: Topic token-events not found in cluster metadata
+2026-03-07 13:55:23,760 ERROR aiokafka.cluster: Topic revocations not found in cluster metadata
+2026-03-07 13:55:23,760 ERROR aiokafka.cluster: Topic token-events not found in cluster metadata
+2026-03-07 13:55:23,761 ERROR aiokafka.cluster: Topic revocations not found in cluster metadata
+2026-03-07 13:55:23,761 ERROR aiokafka.cluster: Topic token-events not found in cluster metadata
+2026-03-07 13:55:23,768 WARNING aiokafka.cluster: Topic token-events is not available during auto-create initialization
+2026-03-07 13:55:23,768 WARNING aiokafka.cluster: Topic revocations is not available during auto-create initialization
+2026-03-07 13:55:23,775 WARNING aiokafka.cluster: Topic token-events is not available during auto-create initialization
+2026-03-07 13:55:23,775 WARNING aiokafka.cluster: Topic revocations is not available during auto-create initialization
+2026-03-07 13:55:23,777 ERROR aiokafka.cluster: Topic revocations not found in cluster metadata
+2026-03-07 13:55:23,777 ERROR aiokafka.cluster: Topic token-events not found in cluster metadata
+2026-03-07 13:55:23,779 ERROR aiokafka.cluster: Topic revocations not found in cluster metadata
+2026-03-07 13:55:23,779 ERROR aiokafka.cluster: Topic token-events not found in cluster metadata
+2026-03-07 13:55:23,781 ERROR aiokafka.cluster: Topic revocations not found in cluster metadata
+2026-03-07 13:55:23,781 ERROR aiokafka.cluster: Topic token-events not found in cluster metadata
+2026-03-07 13:55:23,782 ERROR aiokafka.cluster: Topic revocations not found in cluster metadata
+2026-03-07 13:55:23,782 ERROR aiokafka.cluster: Topic token-events not found in cluster metadata
+2026-03-07 13:55:23,785 ERROR aiokafka.cluster: Topic revocations not found in cluster metadata
+2026-03-07 13:55:23,785 ERROR aiokafka.cluster: Topic token-events not found in cluster metadata
+2026-03-07 13:55:23,789 ERROR aiokafka.cluster: Topic token-events not found in cluster metadata
+2026-03-07 13:55:23,790 WARNING aiokafka.cluster: Topic revocations is not available during auto-create initialization
+2026-03-07 13:55:23,791 ERROR aiokafka.cluster: Topic revocations not found in cluster metadata
+2026-03-07 13:55:23,791 ERROR aiokafka.cluster: Topic token-events not found in cluster metadata
+2026-03-07 13:55:23,792 ERROR aiokafka.cluster: Topic revocations not found in cluster metadata
+2026-03-07 13:55:23,792 ERROR aiokafka.cluster: Topic token-events not found in cluster metadata
+2026-03-07 13:55:23,794 ERROR aiokafka.cluster: Topic revocations not found in cluster metadata
+2026-03-07 13:55:23,794 ERROR aiokafka.cluster: Topic token-events not found in cluster metadata
+2026-03-07 13:55:23,800 WARNING aiokafka.cluster: Topic token-events is not available during auto-create initialization
+2026-03-07 13:55:23,800 WARNING aiokafka.cluster: Topic revocations is not available during auto-create initialization
+2026-03-07 13:55:23,805 WARNING aiokafka.cluster: Topic token-events is not available during auto-create initialization
+2026-03-07 13:55:23,805 WARNING aiokafka.cluster: Topic revocations is not available during auto-create initialization
+2026-03-07 13:55:23,808 ERROR aiokafka.cluster: Topic revocations not found in cluster metadata
+2026-03-07 13:55:23,808 ERROR aiokafka.cluster: Topic token-events not found in cluster metadata
+2026-03-07 13:55:23,810 ERROR aiokafka.cluster: Topic revocations not found in cluster metadata
+2026-03-07 13:55:23,810 ERROR aiokafka.cluster: Topic token-events not found in cluster metadata
+2026-03-07 13:55:23,818 WARNING aiokafka.cluster: Topic token-events is not available during auto-create initialization
+2026-03-07 13:55:23,818 WARNING aiokafka.cluster: Topic revocations is not available during auto-create initialization
+2026-03-07 13:55:23,827 WARNING aiokafka.cluster: Topic token-events is not available during auto-create initialization
+2026-03-07 13:55:23,827 WARNING aiokafka.cluster: Topic revocations is not available during auto-create initialization
+2026-03-07 13:55:23,834 WARNING aiokafka.cluster: Topic token-events is not available during auto-create initialization
+2026-03-07 13:55:23,834 WARNING aiokafka.cluster: Topic revocations is not available during auto-create initialization
+2026-03-07 13:55:23,836 ERROR aiokafka.cluster: Topic revocations not found in cluster metadata
+2026-03-07 13:55:23,836 ERROR aiokafka.cluster: Topic token-events not found in cluster metadata
+2026-03-07 13:55:23,839 ERROR aiokafka.cluster: Topic revocations not found in cluster metadata
+2026-03-07 13:55:23,839 ERROR aiokafka.cluster: Topic token-events not found in cluster metadata
+2026-03-07 13:55:23,840 ERROR aiokafka.cluster: Topic revocations not found in cluster metadata
+2026-03-07 13:55:23,840 ERROR aiokafka.cluster: Topic token-events not found in cluster metadata
+2026-03-07 13:55:23,849 WARNING aiokafka.cluster: Topic token-events is not available during auto-create initialization
+2026-03-07 13:55:23,849 WARNING aiokafka.cluster: Topic revocations is not available during auto-create initialization
+2026-03-07 13:55:23,859 ERROR aiokafka.consumer.group_coordinator: Group Coordinator Request failed: [Error 15] GroupCoordinatorNotAvailableError
+2026-03-07 13:55:23,860 ERROR aiokafka.cluster: Topic revocations not found in cluster metadata
+2026-03-07 13:55:23,860 ERROR aiokafka.cluster: Topic token-events not found in cluster metadata
+2026-03-07 13:55:23,861 ERROR aiokafka.cluster: Topic revocations not found in cluster metadata
+2026-03-07 13:55:23,861 ERROR aiokafka.cluster: Topic token-events not found in cluster metadata
+2026-03-07 13:55:23,869 ERROR aiokafka.cluster: Topic revocations not found in cluster metadata
+2026-03-07 13:55:23,869 INFO aiokafka.consumer.group_coordinator: Metadata for topic has changed from {'revocations': 0, 'token-events': 0} to {'revocations': 0, 'token-events': 1}. 
+2026-03-07 13:55:23,886 INFO aiokafka.consumer.fetcher: Fetch offset 5 is out of range for partition TopicPartition(topic='token-events', partition=0), resetting offset
+2026-03-07 13:55:24,421 INFO aiokafka.consumer.group_coordinator: Discovered coordinator 1 for group revocation-consumers
+2026-03-07 13:55:24,427 WARNING aiokafka.consumer.group_coordinator: Heartbeat failed: local member_id was not recognized; resetting and re-joining group
+2026-03-07 13:55:24,427 ERROR aiokafka.consumer.group_coordinator: Heartbeat session expired - marking coordinator dead
+2026-03-07 13:55:24,427 WARNING aiokafka.consumer.group_coordinator: Marking the coordinator dead (node 1)for group revocation-consumers.
+2026-03-07 13:55:24,435 ERROR aiokafka.consumer.group_coordinator: OffsetCommit failed for group revocation-consumers due to group error ([Error 22] IllegalGenerationError: revocation-consumers), will rejoin
+2026-03-07 13:55:24,436 ERROR aiokafka.consumer.group_coordinator: OffsetCommit failed for group revocation-consumers due to group error ([Error 22] IllegalGenerationError: revocation-consumers), will rejoin
+2026-03-07 13:55:24,436 ERROR aiokafka.consumer.group_coordinator: OffsetCommit failed before join, ignoring: CommitFailedError: ('Commit cannot be completed since the group has already\n            rebalanced and assigned the partitions to another member.\n            This means that the time between subsequent calls to poll()\n            was longer than the configured max_poll_interval_ms, which\n            typically implies that the poll loop is spending too much\n            time message processing. You can address this either by\n            increasing the rebalance timeout with max_poll_interval_ms,\n            or by reducing the maximum size of batches returned in poll()\n            with max_poll_records.\n            ', 'Commit cannot be completed since the group has already rebalanced and may have assigned the partitions to another member')
+2026-03-07 13:55:24,436 INFO aiokafka.consumer.group_coordinator: Revoking previously assigned partitions frozenset({TopicPartition(topic='token-events', partition=0)}) for group revocation-consumers
+2026-03-07 13:55:24,436 INFO aiokafka.consumer.group_coordinator: (Re-)joining group revocation-consumers
+2026-03-07 13:55:24,917 INFO aiokafka.consumer.group_coordinator: Discovered coordinator 1 for group revocation-consumers
+2026-03-07 13:55:24,918 INFO aiokafka.consumer.group_coordinator: (Re-)joining group revocation-consumers
+2026-03-07 13:55:30,957 INFO aiokafka.consumer.group_coordinator: Joined group 'revocation-consumers' (generation 1) with member_id aiokafka-0.10.0-7e828884-42fa-4bc0-af0b-42ab3c0bf78a
+2026-03-07 13:55:30,976 INFO aiokafka.consumer.group_coordinator: Successfully synced group revocation-consumers with generation 1
+2026-03-07 13:55:30,976 INFO aiokafka.consumer.group_coordinator: Setting newly assigned partitions {TopicPartition(topic='token-events', partition=0)} for group revocation-consumers
+2026-03-07 13:56:31,782 ERROR aiokafka.consumer.fetcher: Failed fetch messages from 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:56:31,793 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:56:31,793 ERROR aiokafka: Unable to update metadata from [1]
+2026-03-07 13:56:31,912 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:56:31,912 ERROR aiokafka.consumer.fetcher: Failed fetch messages from 1: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:56:31,916 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:56:31,916 ERROR aiokafka: Unable to update metadata from [1]
+2026-03-07 13:56:32,019 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:56:32,019 ERROR aiokafka.consumer.fetcher: Failed fetch messages from 1: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:56:32,024 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:56:32,024 ERROR aiokafka: Unable to update metadata from [1]
+2026-03-07 13:56:32,135 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:56:32,135 ERROR aiokafka.consumer.fetcher: Failed fetch messages from 1: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:56:32,144 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:56:32,144 ERROR aiokafka: Unable to update metadata from [1]
+2026-03-07 13:56:32,248 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:56:32,249 ERROR aiokafka.consumer.fetcher: Failed fetch messages from 1: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:56:32,256 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:56:32,257 ERROR aiokafka: Unable to update metadata from [1]
+2026-03-07 13:56:32,355 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:56:32,355 ERROR aiokafka.consumer.fetcher: Failed fetch messages from 1: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:56:32,359 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:56:32,360 ERROR aiokafka: Unable to update metadata from [1]
+2026-03-07 13:56:32,464 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:56:32,464 ERROR aiokafka.consumer.fetcher: Failed fetch messages from 1: NodeNotReadyError: Attempt to send a request to node which is not ready (node id 1).
+2026-03-07 13:56:32,471 ERROR aiokafka: Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+2026-03-07 13:56:32,471 ERROR aiokafka: Unable to update metadata from [1]

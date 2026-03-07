@@ -8,3 +8,4 @@ cryptography==42.0.5
 requests==2.31.0
 prometheus-client
 oqs
+pqcrypto

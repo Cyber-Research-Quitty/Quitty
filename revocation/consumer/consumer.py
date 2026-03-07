@@ -121,6 +121,38 @@ async def process_token_event(event: dict, rds: redis.Redis):
                     json.dumps(data)
                 )
             logger.info("Refresh token used: token_id=%s new_access_jti=%s", token_id, new_access_jti)
+
+    elif event_type == "refresh_token_rotated":
+        old_token_id = event.get("token_id")
+        new_token_id = event.get("new_token_id")
+        subject = event.get("subject")
+        client_hash = event.get("client_hash")
+        new_access_jti = event.get("new_access_jti")
+
+        if old_token_id:
+            await rds.set(f"revoked:jti:{old_token_id}", "1")
+            await rds.delete(f"refresh_token:{old_token_id}")
+
+        if new_token_id:
+            await rds.setex(
+                f"refresh_token:{new_token_id}",
+                90 * 24 * 60 * 60,
+                json.dumps(
+                    {
+                        "subject": subject,
+                        "client_hash": client_hash,
+                        "rotated_from": old_token_id,
+                        "last_access_jti": new_access_jti,
+                    }
+                ),
+            )
+
+        logger.info(
+            "Refresh token rotated: old=%s new=%s access_jti=%s",
+            old_token_id,
+            new_token_id,
+            new_access_jti,
+        )
     
     elif event_type == "refresh_token_revoked":
         token_id = event.get("token_id")

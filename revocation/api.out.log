@@ -1,0 +1,29 @@
+INFO:     127.0.0.1:7009 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:7017 - "POST /token HTTP/1.1" 200 OK
+INFO:     127.0.0.1:7018 - "POST /token/validate HTTP/1.1" 200 OK
+INFO:     127.0.0.1:7020 - "POST /revoke HTTP/1.1" 200 OK
+INFO:     127.0.0.1:7022 - "POST /token/validate HTTP/1.1" 200 OK
+INFO:     127.0.0.1:7023 - "POST /token/refresh/create HTTP/1.1" 200 OK
+INFO:     127.0.0.1:7026 - "POST /token/refresh HTTP/1.1" 200 OK
+INFO:     127.0.0.1:7027 - "POST /token/refresh HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:11667 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:11667 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:7294 - "GET /docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:7294 - "GET /openapi.json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6535 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6535 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:5341 - "POST /revoke HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6280 - "POST /token HTTP/1.1" 200 OK
+INFO:     127.0.0.1:9668 - "POST /token/validate HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4485 - "GET /token/inspect?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJzdHJpbmciLCJleHAiOjE3NzI4NzEwMjgsImlhdCI6MTc3Mjg3MDk2OCwiaXNzIjoicDQtcmV2b2NhdGlvbi1zZXJ2aWNlIiwianRpIjoiNjg5YmU5MzUtMzNlNS00MWVlLWIxYjUtMTk2NDVlMTc3NmI1IiwidHlwZSI6ImFjY2VzcyJ9.IlYnHsiuZmgVWWp2zoM3-rp3q_7ucHw8sOapsiECCQc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6155 - "POST /revoke HTTP/1.1" 200 OK
+INFO:     127.0.0.1:5650 - "POST /token/validate HTTP/1.1" 200 OK
+INFO:     127.0.0.1:11937 - "POST /token/refresh/create HTTP/1.1" 200 OK
+INFO:     127.0.0.1:10058 - "POST /token/refresh HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4500 - "POST /token/refresh/revoke?refresh_token=%22eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJzdHJpbmcxMjMiLCJleHAiOjE3ODA2NDcyMjgsImlhdCI6MTc3Mjg3MTIyOCwiaXNzIjoicDQtcmV2b2NhdGlvbi1zZXJ2aWNlIiwianRpIjoiNGViNjcwNjYtMDUzOS00MmYxLWFjMDEtNzAyZjRiNzFkMGU0IiwidHlwZSI6InJlZnJlc2giLCJjbGllbnRfaGFzaCI6IjAzNjI3OTViMmVlNzIzNWIzYjRkMjhmMDY5OGE4NTM2NjcwM2VhY2YwYmE0MDg1Nzk2ZmZkOTgwZDc2NTMzMzcifQ.Gq-BIDbVjAKN43Tkgc5AzRRcghda7aA4AG88fv6r0lc%22 HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:9064 - "POST /token/refresh/revoke?refresh_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJzdHJpbmcxMjMiLCJleHAiOjE3ODA2NDcyMjgsImlhdCI6MTc3Mjg3MTIyOCwiaXNzIjoicDQtcmV2b2NhdGlvbi1zZXJ2aWNlIiwianRpIjoiNGViNjcwNjYtMDUzOS00MmYxLWFjMDEtNzAyZjRiNzFkMGU0IiwidHlwZSI6InJlZnJlc2giLCJjbGllbnRfaGFzaCI6IjAzNjI3OTViMmVlNzIzNWIzYjRkMjhmMDY5OGE4NTM2NjcwM2VhY2YwYmE0MDg1Nzk2ZmZkOTgwZDc2NTMzMzcifQ.Gq-BIDbVjAKN43Tkgc5AzRRcghda7aA4AG88fv6r0lc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:9693 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:9693 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:9887 - "GET /docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:9887 - "GET /openapi.json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:7821 - "GET / HTTP/1.1" 200 OK

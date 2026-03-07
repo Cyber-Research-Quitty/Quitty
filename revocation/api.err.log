@@ -1,0 +1,6 @@
+INFO:     Started server process [8364]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+Unable connect to node with id 1: KafkaConnectionError: Connection at localhost:29092 closed
+Unable to update metadata from [1]
