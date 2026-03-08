@@ -92,7 +92,7 @@ export function AppLayout({ children, current, profile, cartCount = 0, status = 
       <section className="app-frame">
         <aside className="app-sidebar">
           <div className="sidebar-brand">
-            <div className="brand-icon">⬢</div>
+            <div className="brand-icon">Q</div>
             <div>
               <strong>Quantum Shield</strong>
               <p>Secure Commerce</p>
@@ -137,7 +137,7 @@ export function AppLayout({ children, current, profile, cartCount = 0, status = 
         <div className="app-shell">
           <header className="utility-bar">
             <div className="utility-brand">
-              <div className="brand-mark">⬢</div>
+              <div className="brand-mark">Q</div>
               <strong>Quantum Shield Commerce</strong>
             </div>
             <div className="utility-actions">

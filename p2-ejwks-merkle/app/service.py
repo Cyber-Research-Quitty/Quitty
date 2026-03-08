@@ -21,6 +21,7 @@ class EJWKSService:
         log_signer: RootSigner,
         bloom_bits: int,
         bloom_hashes: int,
+        bloom_enabled: bool = True,
     ) -> None:
         self.store = store
         self.redis = redis
@@ -28,6 +29,7 @@ class EJWKSService:
         self.log_signer = log_signer
         self._bloom_bits = bloom_bits
         self._bloom_hashes = bloom_hashes
+        self.bloom_enabled = bloom_enabled
         self.bloom = BloomFilter(m_bits=bloom_bits, k_hashes=bloom_hashes)
 
     # ---------------- JWKS Merkle ----------------
@@ -111,11 +113,12 @@ class EJWKSService:
 
     # ---------------- Key+Proof ----------------
     def get_key_and_proof_by_kid(self, kid: str) -> Optional[Tuple[Dict[str, Any], List[Dict[str, str]], str]]:
-        if kid not in self.bloom:
-            self.redis.set(f"neg:kid:{kid}", "1", ex=60)
-            return None
-        if self.redis.get(f"neg:kid:{kid}"):
-            return None
+        if self.bloom_enabled:
+            if kid not in self.bloom:
+                self.redis.set(f"neg:kid:{kid}", "1", ex=60)
+                return None
+            if self.redis.get(f"neg:kid:{kid}"):
+                return None
 
         raw_key = self.redis.get(f"key:kid:{kid}")
         raw_proof = self.redis.get(f"proof:kid:{kid}")
@@ -134,22 +137,25 @@ class EJWKSService:
             jkt = raw_jkt.decode("utf-8") if isinstance(raw_jkt, bytes) else raw_jkt
             return json.loads(raw_key), json.loads(raw_proof), jkt
 
-        self.redis.set(f"neg:kid:{kid}", "1", ex=60)
+        if self.bloom_enabled:
+            self.redis.set(f"neg:kid:{kid}", "1", ex=60)
         return None
 
     def get_key_and_proof_by_jkt(self, jkt: str) -> Optional[Tuple[Dict[str, Any], List[Dict[str, str]], str]]:
-        if jkt not in self.bloom:
-            self.redis.set(f"neg:jkt:{jkt}", "1", ex=60)
-            return None
-        if self.redis.get(f"neg:jkt:{jkt}"):
-            return None
+        if self.bloom_enabled:
+            if jkt not in self.bloom:
+                self.redis.set(f"neg:jkt:{jkt}", "1", ex=60)
+                return None
+            if self.redis.get(f"neg:jkt:{jkt}"):
+                return None
 
         kid = self.redis.get(f"kid_by_jkt:{jkt}")
         if not kid:
             self.rebuild_tree()
             kid = self.redis.get(f"kid_by_jkt:{jkt}")
         if not kid:
-            self.redis.set(f"neg:jkt:{jkt}", "1", ex=60)
+            if self.bloom_enabled:
+                self.redis.set(f"neg:jkt:{jkt}", "1", ex=60)
             return None
 
         if isinstance(kid, (bytes, bytearray)):

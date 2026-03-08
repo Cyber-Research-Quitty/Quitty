@@ -33,6 +33,7 @@ LOG_SIGNER_KEY_PATH = os.getenv("LOG_SIGNER_KEY_PATH", "./log_signer_key.json")
 
 BLOOM_BITS = int(os.getenv("BLOOM_BITS", "1048576"))
 BLOOM_HASHES = int(os.getenv("BLOOM_HASHES", "7"))
+BLOOM_ENABLED = os.getenv("BLOOM_ENABLED", "true").strip().lower() in {"1", "true", "yes", "on"}
 
 app = FastAPI(title="Merkle-Enhanced E-JWKS + Transparency", version="0.2.0")
 
@@ -55,6 +56,7 @@ svc = EJWKSService(
     log_signer=log_signer,
     bloom_bits=BLOOM_BITS,
     bloom_hashes=BLOOM_HASHES,
+    bloom_enabled=BLOOM_ENABLED,
 )
 
 @app.on_event("startup")
@@ -63,7 +65,10 @@ def _startup() -> None:
     svc.rebuild_tree()
     key_count = len(store.list_all())
     checkpoint_count = len(store.list_checkpoints())
-    logger.info(f"Startup complete: {key_count} keys, {checkpoint_count} checkpoints")
+    logger.info(
+        f"Startup complete: {key_count} keys, {checkpoint_count} checkpoints, "
+        f"bloom_enabled={BLOOM_ENABLED}, bloom_bits={BLOOM_BITS}, bloom_hashes={BLOOM_HASHES}"
+    )
 
 @app.get("/health")
 def health():

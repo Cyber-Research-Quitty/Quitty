@@ -24,6 +24,7 @@ services:
       - LOG_SIGNER_KEY_PATH=/data/log_signer_key.json
       - BLOOM_BITS=1048576
       - BLOOM_HASHES=7
+      - BLOOM_ENABLED=${BLOOM_ENABLED:-true}
     volumes:
       - ./data:/data
     depends_on:

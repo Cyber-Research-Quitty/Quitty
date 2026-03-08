@@ -4,12 +4,15 @@ import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { AppLayout } from './app-layout';
-import { AuthResponse, UserProfile } from './types';
+import { FrameworkPanel } from './framework-panel';
+import { AuthResponse, FrameworkStatusResponse, SessionDetailsResponse, UserProfile } from './types';
 import { authApiUrl, authHeaders, clearStoredToken, getStoredToken, persistToken } from '../lib/session';
 
 export function ProfilePage() {
   const router = useRouter();
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [frameworkStatus, setFrameworkStatus] = useState<FrameworkStatusResponse | null>(null);
+  const [sessionDetails, setSessionDetails] = useState<SessionDetailsResponse | null>(null);
   const [status, setStatus] = useState('Manage your security and personal information with quantum-grade protection.');
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
@@ -43,6 +46,19 @@ export function ProfilePage() {
     setName(data.name);
     setAddress(data.address);
     setPhone(data.phone);
+
+    const [frameworkResponse, sessionResponse] = await Promise.all([
+      fetch(`${authApiUrl}/framework/status`),
+      fetch(`${authApiUrl}/session/details`, { headers: { Authorization: `Bearer ${token}` } })
+    ]);
+
+    if (frameworkResponse.ok) {
+      setFrameworkStatus((await frameworkResponse.json()) as FrameworkStatusResponse);
+    }
+
+    if (sessionResponse.ok) {
+      setSessionDetails((await sessionResponse.json()) as SessionDetailsResponse);
+    }
   }
 
   async function saveProfile(event: FormEvent<HTMLFormElement>) {
@@ -88,7 +104,8 @@ export function ProfilePage() {
     setCurrentPassword('');
     setNewPassword('');
     setConfirmPassword('');
-    setStatus('Password updated successfully.');
+    setStatus('Password updated successfully and a fresh P1 token has been issued.');
+    await loadProfile();
   }
 
   if (!profile) {
@@ -116,6 +133,8 @@ export function ProfilePage() {
         </div>
         <div className="security-status">Level 4 Encryption Active</div>
       </section>
+
+      <FrameworkPanel frameworkStatus={frameworkStatus} sessionDetails={sessionDetails} />
 
       <section className="profile-grid-modern">
         <form className="form-panel" onSubmit={saveProfile}>
@@ -156,24 +175,24 @@ export function ProfilePage() {
 
       <section className="mini-status-grid">
         <article className="mini-status-card">
-          <span className="status-icon">✓</span>
+          <span className="status-icon">OK</span>
           <div>
             <strong>Authenticator</strong>
-            <p>2FA status enabled</p>
+            <p>P3 guard validation is required for every protected request.</p>
           </div>
         </article>
         <article className="mini-status-card">
-          <span className="status-icon">▣</span>
+          <span className="status-icon">KID</span>
           <div>
-            <strong>Trusted Devices</strong>
-            <p>2 active sessions</p>
+            <strong>Trusted Key</strong>
+            <p>{sessionDetails?.token.kid ? `Active signer ${sessionDetails.token.kid}` : 'Signer metadata will appear here once loaded.'}</p>
           </div>
         </article>
         <article className="mini-status-card">
-          <span className="status-icon">◔</span>
+          <span className="status-icon">P4</span>
           <div>
-            <strong>Last Login</strong>
-            <p>Today via protected session</p>
+            <strong>Revocation</strong>
+            <p>{sessionDetails?.p4.revoked ? 'Current token is revoked.' : 'Current token is active and tracked in P4.'}</p>
           </div>
         </article>
       </section>

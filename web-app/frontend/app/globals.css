@@ -1089,3 +1089,135 @@ p {
     font-size: 3.7rem;
   }
 }
+
+.framework-panel {
+  background: linear-gradient(135deg, #fffaf7 0%, #f4eee7 100%);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  box-shadow: var(--shadow);
+  padding: 26px;
+  display: grid;
+  gap: 20px;
+}
+
+.framework-panel.compact {
+  padding: 20px;
+  background: #fcfaf8;
+}
+
+.framework-panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 18px;
+}
+
+.framework-panel-head h2 {
+  margin: 10px 0 0;
+  font-size: 1.4rem;
+}
+
+.framework-panel-head p {
+  max-width: 56ch;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.framework-service-grid,
+.framework-detail-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.framework-service-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.framework-detail-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.framework-service-card,
+.framework-detail-card {
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 18px;
+  display: grid;
+  gap: 12px;
+}
+
+.framework-service-head,
+.detail-card-head,
+.detail-kv {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.framework-service-card p,
+.service-detail {
+  color: var(--muted);
+  word-break: break-word;
+}
+
+.service-pill {
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.service-pill.ok {
+  background: rgba(36, 165, 74, 0.12);
+  color: var(--success);
+}
+
+.service-pill.warn {
+  background: rgba(200, 102, 60, 0.14);
+  color: var(--accent-deep);
+}
+
+.detail-kv {
+  padding-top: 10px;
+  border-top: 1px solid rgba(231, 221, 213, 0.8);
+  align-items: start;
+}
+
+.detail-kv span {
+  color: var(--muted);
+}
+
+.detail-kv b {
+  text-align: right;
+  word-break: break-word;
+}
+
+@media (max-width: 1280px) {
+  .framework-service-grid,
+  .framework-detail-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .framework-panel-head,
+  .framework-service-head,
+  .detail-card-head,
+  .detail-kv {
+    flex-direction: column;
+    align-items: start;
+  }
+
+  .framework-service-grid,
+  .framework-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-kv b {
+    text-align: left;
+  }
+}

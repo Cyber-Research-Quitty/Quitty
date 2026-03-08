@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { AppLayout } from './app-layout';
-import { CartResponse, Product, ProductResponse, UserProfile } from './types';
+import { FrameworkPanel } from './framework-panel';
+import { CartResponse, FrameworkStatusResponse, Product, ProductResponse, SessionDetailsResponse, UserProfile } from './types';
 import { authApiUrl, authHeaders, cartApiUrl, clearStoredToken, getStoredToken, productApiUrl } from '../lib/session';
 
 export function HomePage() {
@@ -12,6 +13,8 @@ export function HomePage() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [cartCount, setCartCount] = useState(0);
+  const [frameworkStatus, setFrameworkStatus] = useState<FrameworkStatusResponse | null>(null);
+  const [sessionDetails, setSessionDetails] = useState<SessionDetailsResponse | null>(null);
   const [status, setStatus] = useState('Protected storefront active. Inventory is ready for secure trade.');
 
   useEffect(() => {
@@ -36,16 +39,34 @@ export function HomePage() {
 
     setProfile((await profileResponse.json()) as UserProfile);
 
-    const [productResponse, cartResponse] = await Promise.all([
+    const [productResponse, cartResponse, frameworkResponse, sessionResponse] = await Promise.all([
       fetch(`${productApiUrl}/products`),
-      fetch(`${cartApiUrl}/cart`, { headers: { Authorization: `Bearer ${token}` } })
+      fetch(`${cartApiUrl}/cart`, { headers: { Authorization: `Bearer ${token}` } }),
+      fetch(`${authApiUrl}/framework/status`),
+      fetch(`${authApiUrl}/session/details`, { headers: { Authorization: `Bearer ${token}` } })
     ]);
 
-    setProducts(((await productResponse.json()) as ProductResponse).items);
+    if (productResponse.ok) {
+      setProducts(((await productResponse.json()) as ProductResponse).items);
+    }
 
     if (cartResponse.ok) {
       const cartData = (await cartResponse.json()) as CartResponse;
       setCartCount(cartData.items.reduce((sum, item) => sum + item.quantity, 0));
+    }
+
+    if (frameworkResponse.ok) {
+      setFrameworkStatus((await frameworkResponse.json()) as FrameworkStatusResponse);
+    }
+
+    if (sessionResponse.ok) {
+      setSessionDetails((await sessionResponse.json()) as SessionDetailsResponse);
+    } else if (sessionResponse.status === 401) {
+      clearStoredToken();
+      router.replace('/');
+      return;
+    } else {
+      setStatus('Protected storefront active, but live framework diagnostics could not be loaded.');
     }
   }
 
@@ -94,6 +115,8 @@ export function HomePage() {
         </div>
       </section>
 
+      <FrameworkPanel frameworkStatus={frameworkStatus} sessionDetails={sessionDetails} />
+
       <section className="home-grid">
         <div className="left-stack">
           <article className="accent-stat-card">
@@ -107,7 +130,7 @@ export function HomePage() {
               <div>
                 <h3>Catalog Segments</h3>
               </div>
-              <button className="segment-filter" type="button" aria-label="Filter catalog segments">≡</button>
+              <button className="segment-filter" type="button" aria-label="Filter catalog segments">Menu</button>
             </div>
             <div className="segment-list">
               {categories.map((category) => (

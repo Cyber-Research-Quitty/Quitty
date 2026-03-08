@@ -4,11 +4,16 @@ services:
     environment:
       ACCESS_TOKEN_TTL_MINUTES: 60
       AUTH_DB_PATH: /data/auth.db
-      JWT_ISSUER: p4-revocation-service
-      P1_SIGN_URL: http://host.docker.internal:8100/sign
-      P1_SIGN_ALG: ml-dsa-44
-      P3_VALIDATE_URL: http://host.docker.internal:8300/guard/validate
-      P4_REVOKE_URL: http://host.docker.internal:8400/revoke
+      JWT_ISSUER: ${QUITTY_JWT_ISSUER:-p4-revocation-service}
+      P1_BASE_URL: ${QUITTY_P1_BASE_URL:-http://host.docker.internal:8100}
+      P1_SIGN_URL: ${QUITTY_P1_SIGN_URL:-http://host.docker.internal:8100/sign}
+      P1_SIGN_ALG: ${QUITTY_P1_SIGN_ALG:-ml-dsa-44}
+      P2_BASE_URL: ${QUITTY_P2_BASE_URL:-http://host.docker.internal:8200}
+      P3_BASE_URL: ${QUITTY_P3_BASE_URL:-http://host.docker.internal:8300}
+      P3_VALIDATE_URL: ${QUITTY_P3_VALIDATE_URL:-http://host.docker.internal:8300/guard/validate}
+      P4_BASE_URL: ${QUITTY_P4_BASE_URL:-http://host.docker.internal:8400}
+      P4_REVOKE_URL: ${QUITTY_P4_REVOKE_URL:-http://host.docker.internal:8400/revoke}
+      P4_TOKEN_META_URL_TEMPLATE: ${QUITTY_P4_TOKEN_META_URL_TEMPLATE:-http://host.docker.internal:8400/v1/tokens/{jti}}
       TOKEN_TIMEOUT_SECONDS: 5
     ports:
       - '8001:8001'
@@ -28,7 +33,7 @@ services:
     build: ./cart
     environment:
       DB_SERVICE_URL: http://db:8002
-      P3_VALIDATE_URL: http://host.docker.internal:8300/guard/validate
+      P3_VALIDATE_URL: ${QUITTY_P3_VALIDATE_URL:-http://host.docker.internal:8300/guard/validate}
       TOKEN_TIMEOUT_SECONDS: 5
     ports:
       - '8003:8003'
@@ -44,9 +49,9 @@ services:
   frontend:
     build: ./frontend
     environment:
-      NEXT_PUBLIC_AUTH_API_URL: http://localhost:8001
-      NEXT_PUBLIC_CART_API_URL: http://localhost:8003
-      NEXT_PUBLIC_PRODUCT_API_URL: http://localhost:8004
+      NEXT_PUBLIC_AUTH_API_URL: ${WEB_AUTH_API_URL:-http://localhost:8001}
+      NEXT_PUBLIC_CART_API_URL: ${WEB_CART_API_URL:-http://localhost:8003}
+      NEXT_PUBLIC_PRODUCT_API_URL: ${WEB_PRODUCT_API_URL:-http://localhost:8004}
     ports:
       - '3000:3000'
     depends_on:

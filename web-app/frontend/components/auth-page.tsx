@@ -3,7 +3,8 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-import { AuthResponse } from './types';
+import { FrameworkPanel } from './framework-panel';
+import { AuthResponse, FrameworkStatusResponse } from './types';
 import { authApiUrl, getStoredToken, persistToken } from '../lib/session';
 
 type AuthMode = 'login' | 'register';
@@ -13,6 +14,7 @@ export function AuthPage() {
   const [mode, setMode] = useState<AuthMode>('login');
   const [status, setStatus] = useState('Access your secure commerce dashboard.');
   const [loading, setLoading] = useState(false);
+  const [frameworkStatus, setFrameworkStatus] = useState<FrameworkStatusResponse | null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -24,8 +26,18 @@ export function AuthPage() {
   useEffect(() => {
     if (getStoredToken()) {
       router.replace('/home');
+      return;
     }
+
+    void loadFrameworkStatus();
   }, [router]);
+
+  async function loadFrameworkStatus() {
+    const response = await fetch(`${authApiUrl}/framework/status`);
+    if (response.ok) {
+      setFrameworkStatus((await response.json()) as FrameworkStatusResponse);
+    }
+  }
 
   async function login(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -75,7 +87,7 @@ export function AuthPage() {
       return;
     }
 
-    await response.json() as AuthResponse;
+    await response.json();
     setLoading(false);
     setMode('login');
     setEmail(registerEmail);
@@ -93,17 +105,17 @@ export function AuthPage() {
       <section className="auth-layout">
         <div className="auth-promo">
           <div className="promo-brand">
-            <div className="brand-mark large">⬢</div>
+            <div className="brand-mark large">Q</div>
             <strong>Quantum Shield Commerce</strong>
           </div>
 
           <div className="promo-main">
-            <h1 className="display-title">Inductry First, Quantom Safe E-Commerce Experience.</h1>
+            <h1 className="display-title">Industry-first, quantum-safe commerce sessions.</h1>
 
             <div className="security-points">
               <article>
                 <strong>Security Layer</strong>
-                <p>PQC readiness protects sessions and assets against future computational threats.</p>
+                <p>P1 issues the session, P2 publishes key evidence, P3 validates requests, and P4 can revoke the token instantly.</p>
               </article>
               <article>
                 <strong>Access Control</strong>
@@ -123,7 +135,7 @@ export function AuthPage() {
           </div>
         </div>
 
-          <div className="auth-panel">
+        <div className="auth-panel">
           <div className="auth-panel-inner">
             <div className="auth-header-block">
               <h2>Welcome to the Shield</h2>
@@ -183,6 +195,8 @@ export function AuthPage() {
                 </button>
               </form>
             )}
+
+            <FrameworkPanel frameworkStatus={frameworkStatus} compact />
 
             <div className="auth-assurance">End-to-end encrypted session</div>
           </div>

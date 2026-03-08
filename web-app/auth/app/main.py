@@ -8,6 +8,7 @@ import os
 import secrets
 import sqlite3
 from typing import Annotated, Any, Optional
+from urllib.parse import urlsplit
 
 import httpx
 from fastapi import FastAPI, Header, HTTPException
@@ -18,10 +19,30 @@ ACCESS_TOKEN_TTL_MINUTES = int(os.getenv("ACCESS_TOKEN_TTL_MINUTES", "60"))
 AUTH_DB_PATH = os.getenv("AUTH_DB_PATH", "/data/auth.db")
 P1_SIGN_URL = os.getenv("P1_SIGN_URL", "http://host.docker.internal:8100/sign")
 P1_SIGN_ALG = os.getenv("P1_SIGN_ALG", "ml-dsa-44")
+P2_BASE_URL = os.getenv("P2_BASE_URL", "http://host.docker.internal:8200")
 P3_VALIDATE_URL = os.getenv("P3_VALIDATE_URL", "http://host.docker.internal:8300/guard/validate")
 P4_REVOKE_URL = os.getenv("P4_REVOKE_URL", "http://host.docker.internal:8400/revoke")
+P4_TOKEN_META_URL_TEMPLATE = os.getenv(
+    "P4_TOKEN_META_URL_TEMPLATE",
+    "http://host.docker.internal:8400/v1/tokens/{jti}",
+)
 TOKEN_TIMEOUT_SECONDS = float(os.getenv("TOKEN_TIMEOUT_SECONDS", "5"))
 JWT_ISSUER = os.getenv("JWT_ISSUER", "p4-revocation-service")
+
+
+def _origin_from_url(url: str) -> str:
+    parts = urlsplit(url)
+    if not parts.scheme or not parts.netloc:
+        return url
+    return f"{parts.scheme}://{parts.netloc}"
+
+
+P1_BASE_URL = os.getenv("P1_BASE_URL", _origin_from_url(P1_SIGN_URL))
+P3_BASE_URL = os.getenv("P3_BASE_URL", _origin_from_url(P3_VALIDATE_URL))
+P4_BASE_URL = os.getenv("P4_BASE_URL", _origin_from_url(P4_REVOKE_URL))
+P2_JWKS_ROOT_URL = os.getenv("P2_JWKS_ROOT_URL", f"{P2_BASE_URL}/jwks/root")
+P2_KEY_PROOF_URL_TEMPLATE = os.getenv("P2_KEY_PROOF_URL_TEMPLATE", f"{P2_BASE_URL}/jwks/{{kid}}")
+P2_LOG_LATEST_URL = os.getenv("P2_LOG_LATEST_URL", f"{P2_BASE_URL}/log/latest")
 
 
 class LoginRequest(BaseModel):
@@ -119,7 +140,141 @@ def get_user_by_email(email: str) -> Optional[sqlite3.Row]:
         return connection.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
 
 
-def create_access_token(user: sqlite3.Row) -> dict:
+def decode_jwt_segment_unsafe(token: str, segment_index: int) -> dict[str, Any]:
+    try:
+        parts = token.split(".")
+        if len(parts) != 3:
+            return {}
+        segment = parts[segment_index]
+        segment += "=" * (-len(segment) % 4)
+        decoded = base64.urlsafe_b64decode(segment.encode("ascii"))
+        payload = json.loads(decoded.decode("utf-8"))
+        if isinstance(payload, dict):
+            return payload
+    except Exception:
+        return {}
+    return {}
+
+
+def decode_jwt_header_unsafe(token: str) -> dict[str, Any]:
+    return decode_jwt_segment_unsafe(token, 0)
+
+
+def decode_jwt_payload_unsafe(token: str) -> dict[str, Any]:
+    return decode_jwt_segment_unsafe(token, 1)
+
+
+def safe_json(response: httpx.Response) -> dict[str, Any]:
+    try:
+        data = response.json()
+    except ValueError as exc:
+        raise HTTPException(status_code=502, detail="Upstream service returned malformed JSON") from exc
+    if not isinstance(data, dict):
+        raise HTTPException(status_code=502, detail="Upstream service returned malformed JSON")
+    return data
+
+
+def http_get_json(url: str, *, headers: Optional[dict[str, str]] = None, timeout: Optional[float] = None) -> tuple[int, dict[str, Any]]:
+    try:
+        response = httpx.get(url, headers=headers, timeout=timeout or TOKEN_TIMEOUT_SECONDS)
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=503, detail="Dependent service unavailable") from exc
+    return response.status_code, safe_json(response)
+
+
+def http_post_json(url: str, payload: dict[str, Any], *, headers: Optional[dict[str, str]] = None, timeout: Optional[float] = None) -> tuple[int, dict[str, Any]]:
+    try:
+        response = httpx.post(url, json=payload, headers=headers, timeout=timeout or TOKEN_TIMEOUT_SECONDS)
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=503, detail="Dependent service unavailable") from exc
+    return response.status_code, safe_json(response)
+
+
+def get_service_health(label: str, base_url: str) -> dict[str, Any]:
+    health_url = f"{base_url.rstrip('/')}/health"
+    try:
+        response = httpx.get(health_url, timeout=TOKEN_TIMEOUT_SECONDS)
+        details = response.json() if response.headers.get("content-type", "").startswith("application/json") else {}
+        healthy = response.status_code == 200
+        error = None if healthy else f"unexpected_status_{response.status_code}"
+    except (httpx.HTTPError, ValueError) as exc:
+        healthy = False
+        details = {}
+        error = type(exc).__name__
+
+    return {
+        "service": label,
+        "url": base_url,
+        "health_url": health_url,
+        "healthy": healthy,
+        "error": error,
+        "details": details if isinstance(details, dict) else {},
+    }
+
+
+def get_p2_root_summary() -> dict[str, Any]:
+    status_code, payload = http_get_json(P2_JWKS_ROOT_URL)
+    if status_code != 200:
+        raise HTTPException(status_code=502, detail="P2 JWKS root unavailable")
+    return {
+        "root_hash": payload.get("root_hash"),
+        "epoch": payload.get("epoch"),
+        "sig_alg": payload.get("sig_alg"),
+        "sig_kid": payload.get("sig_kid"),
+    }
+
+
+def get_p2_log_summary() -> dict[str, Any]:
+    status_code, payload = http_get_json(P2_LOG_LATEST_URL)
+    if status_code != 200:
+        raise HTTPException(status_code=502, detail="P2 transparency log unavailable")
+
+    checkpoint = payload.get("checkpoint") if isinstance(payload.get("checkpoint"), dict) else {}
+    log_root = payload.get("log_root") if isinstance(payload.get("log_root"), dict) else {}
+    proof = payload.get("inclusion_proof") if isinstance(payload.get("inclusion_proof"), list) else []
+    return {
+        "checkpoint_idx": checkpoint.get("idx"),
+        "checkpoint_epoch": checkpoint.get("epoch"),
+        "checkpoint_root_hash": checkpoint.get("jwks_root_hash"),
+        "log_root_hash": log_root.get("root_hash"),
+        "log_epoch": log_root.get("epoch"),
+        "proof_hops": len(proof),
+    }
+
+
+def get_p2_key_summary(kid: str) -> dict[str, Any]:
+    status_code, payload = http_get_json(P2_KEY_PROOF_URL_TEMPLATE.format(kid=kid))
+    if status_code == 404:
+        return {"found": False, "kid": kid}
+    if status_code != 200:
+        raise HTTPException(status_code=502, detail="P2 key proof unavailable")
+
+    proof = payload.get("merkle_proof") if isinstance(payload.get("merkle_proof"), list) else []
+    root = payload.get("root") if isinstance(payload.get("root"), dict) else {}
+    jwk = payload.get("jwk") if isinstance(payload.get("jwk"), dict) else {}
+    return {
+        "found": True,
+        "kid": payload.get("kid") or kid,
+        "jkt": payload.get("jkt"),
+        "proof_hops": len(proof),
+        "kty": jwk.get("kty"),
+        "alg": jwk.get("alg"),
+        "root_hash": root.get("root_hash"),
+        "root_epoch": root.get("epoch"),
+        "checkpoint_idx": payload.get("latest_checkpoint_idx"),
+    }
+
+
+def get_p4_token_meta(jti: str) -> dict[str, Any]:
+    status_code, payload = http_get_json(P4_TOKEN_META_URL_TEMPLATE.format(jti=jti))
+    if status_code == 404:
+        return {"found": False, "jti": jti, "revoked": False}
+    if status_code != 200:
+        raise HTTPException(status_code=502, detail="P4 token metadata unavailable")
+    return payload
+
+
+def create_access_token(user: sqlite3.Row) -> dict[str, Any]:
     now = datetime.now(timezone.utc)
     claims = {
         "sub": str(user["id"]),
@@ -130,49 +285,43 @@ def create_access_token(user: sqlite3.Row) -> dict:
         "iat": int(now.timestamp()),
         "exp": int((now + timedelta(minutes=ACCESS_TOKEN_TTL_MINUTES)).timestamp()),
     }
-    token, token_claims = sign_claims(claims)
-    return {"access_token": token, "token_type": "bearer", "user": token_claims}
+    token, token_claims, signing_meta = sign_claims(claims)
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "user": token_claims,
+        "framework": {"signer": signing_meta},
+    }
 
 
-def decode_jwt_payload_unsafe(token: str) -> dict[str, Any]:
-    try:
-        parts = token.split(".")
-        if len(parts) != 3:
-            return {}
-        payload_segment = parts[1]
-        payload_segment += "=" * (-len(payload_segment) % 4)
-        payload_bytes = base64.urlsafe_b64decode(payload_segment.encode("ascii"))
-        payload = json.loads(payload_bytes.decode("utf-8"))
-        if isinstance(payload, dict):
-            return payload
-    except Exception:
-        return {}
-    return {}
+def sign_claims(claims: dict[str, Any]) -> tuple[str, dict[str, Any], dict[str, Any]]:
+    status_code, body = http_post_json(
+        P1_SIGN_URL,
+        {"claims": claims, "alg": P1_SIGN_ALG},
+    )
+    if status_code >= 400:
+        raise HTTPException(status_code=503, detail="Token signer unavailable")
 
-
-def sign_claims(claims: dict[str, Any]) -> tuple[str, dict[str, Any]]:
-    try:
-        response = httpx.post(
-            P1_SIGN_URL,
-            json={"claims": claims, "alg": P1_SIGN_ALG},
-            timeout=TOKEN_TIMEOUT_SECONDS,
-        )
-        response.raise_for_status()
-    except httpx.HTTPError as exc:
-        raise HTTPException(status_code=503, detail="Token signer unavailable") from exc
-
-    body = response.json()
     token = body.get("token")
     if not isinstance(token, str) or not token:
         raise HTTPException(status_code=502, detail="Token signer returned malformed response")
 
     signed_claims = decode_jwt_payload_unsafe(token)
+    header = decode_jwt_header_unsafe(token)
     if not signed_claims:
         raise HTTPException(status_code=502, detail="Signed token payload is malformed")
-    return token, signed_claims
+
+    signing_meta = {
+        "alg": body.get("alg") if isinstance(body.get("alg"), str) else header.get("alg"),
+        "kid": body.get("kid") if isinstance(body.get("kid"), str) else header.get("kid"),
+        "jti": body.get("jti") if isinstance(body.get("jti"), str) else signed_claims.get("jti"),
+        "token_size_bytes": body.get("token_size_bytes"),
+        "sign_time_ms": body.get("sign_time_ms"),
+    }
+    return token, signed_claims, signing_meta
 
 
-def validate_token(token: str) -> dict[str, Any]:
+def guard_validate(token: str) -> dict[str, Any]:
     try:
         response = httpx.get(
             P3_VALIDATE_URL,
@@ -187,25 +336,26 @@ def validate_token(token: str) -> dict[str, Any]:
     except httpx.RequestError as exc:
         raise HTTPException(status_code=503, detail="P3 guard unavailable") from exc
 
-    body = response.json()
+    body = safe_json(response)
     if not body.get("valid"):
         raise HTTPException(status_code=401, detail="Invalid token")
     claims = body.get("claims")
     if not isinstance(claims, dict):
         raise HTTPException(status_code=401, detail="Invalid token claims")
-    return claims
+    return body
+
+
+def validate_token(token: str) -> dict[str, Any]:
+    return guard_validate(token)["claims"]
 
 
 def revoke_jti(jti: str) -> None:
-    try:
-        response = httpx.post(
-            P4_REVOKE_URL,
-            json={"type": "revoke_jti", "value": jti},
-            timeout=TOKEN_TIMEOUT_SECONDS,
-        )
-        response.raise_for_status()
-    except httpx.HTTPError as exc:
-        raise HTTPException(status_code=503, detail="Revocation service unavailable") from exc
+    status_code, _ = http_post_json(
+        P4_REVOKE_URL,
+        {"type": "revoke_jti", "value": jti},
+    )
+    if status_code >= 400:
+        raise HTTPException(status_code=503, detail="Revocation service unavailable")
 
 
 def insert_user(payload: RegisterRequest, role: str = "member") -> sqlite3.Row:
@@ -308,13 +458,97 @@ def get_current_user(authorization: Annotated[Optional[str], Header()] = None) -
     return user
 
 
+def summarize_session(token: str) -> dict[str, Any]:
+    guard_body = guard_validate(token)
+    claims = guard_body.get("claims") if isinstance(guard_body.get("claims"), dict) else {}
+    header = guard_body.get("header") if isinstance(guard_body.get("header"), dict) else decode_jwt_header_unsafe(token)
+    jti = claims.get("jti") if isinstance(claims.get("jti"), str) else None
+    kid = header.get("kid") if isinstance(header.get("kid"), str) else None
+
+    session = {
+        "token": {
+            "sub": claims.get("sub"),
+            "email": claims.get("email"),
+            "name": claims.get("name"),
+            "role": claims.get("role"),
+            "iss": claims.get("iss"),
+            "iat": claims.get("iat"),
+            "exp": claims.get("exp"),
+            "jti": jti,
+            "alg": header.get("alg"),
+            "kid": kid,
+        },
+        "validation": {
+            "valid": True,
+            "claims_source": "p3-guard-service",
+            "header": header,
+        },
+    }
+
+    if kid:
+        session["p2"] = {
+            "jwks_root": get_p2_root_summary(),
+            "key_proof": get_p2_key_summary(kid),
+            "transparency_log": get_p2_log_summary(),
+        }
+    else:
+        session["p2"] = {
+            "jwks_root": get_p2_root_summary(),
+            "key_proof": {"found": False},
+            "transparency_log": get_p2_log_summary(),
+        }
+
+    if jti:
+        token_meta = get_p4_token_meta(jti)
+        session["p4"] = {
+            "token_meta": token_meta,
+            "revoked": bool(token_meta.get("revoked")),
+        }
+    else:
+        session["p4"] = {
+            "token_meta": {"found": False},
+            "revoked": False,
+        }
+
+    return session
+
+
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok"}
 
 
+@app.get("/framework/status")
+def framework_status() -> dict[str, Any]:
+    services = {
+        "p1": get_service_health("p1-sign-service", P1_BASE_URL),
+        "p2": get_service_health("p2-ejwks-merkle", P2_BASE_URL),
+        "p3": get_service_health("p3-guard-service", P3_BASE_URL),
+        "p4": get_service_health("p4-revocation", P4_BASE_URL),
+    }
+
+    root_summary: dict[str, Any] = {}
+    log_summary: dict[str, Any] = {}
+    try:
+        root_summary = get_p2_root_summary()
+    except HTTPException:
+        root_summary = {}
+    try:
+        log_summary = get_p2_log_summary()
+    except HTTPException:
+        log_summary = {}
+
+    return {
+        "services": services,
+        "p2": {
+            "jwks_root": root_summary,
+            "transparency_log": log_summary,
+        },
+    }
+
+
 @app.post("/register")
-def register(payload: RegisterRequest) -> dict:
+def register(payload: RegisterRequest) -> dict[str, Any]:
     if len(payload.password) < 8:
         raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
     if get_user_by_email(payload.email) is not None:
@@ -325,7 +559,7 @@ def register(payload: RegisterRequest) -> dict:
 
 
 @app.post("/login")
-def login(payload: LoginRequest) -> dict:
+def login(payload: LoginRequest) -> dict[str, Any]:
     user = get_user_by_email(payload.email)
     if user is None or not verify_password(payload.password, user["password_salt"], user["password_hash"]):
         raise HTTPException(status_code=401, detail="Invalid credentials")
@@ -333,7 +567,7 @@ def login(payload: LoginRequest) -> dict:
 
 
 @app.post("/verify")
-def verify(payload: VerifyRequest) -> dict:
+def verify(payload: VerifyRequest) -> dict[str, Any]:
     claims = validate_token(payload.token)
     return {"valid": True, "claims": claims}
 
@@ -365,6 +599,33 @@ def me(authorization: Annotated[Optional[str], Header()] = None) -> dict:
     }
 
 
+@app.get("/session/details")
+def session_details(authorization: Annotated[Optional[str], Header()] = None) -> dict[str, Any]:
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing bearer token")
+
+    token = authorization.split(" ", 1)[1]
+    session = summarize_session(token)
+    claims = session["token"]
+    sub = claims.get("sub")
+    user = None
+    if isinstance(sub, str) and sub.isdigit():
+        user = get_user_by_id(int(sub))
+
+    return {
+        "user": {
+            "id": user["id"],
+            "email": user["email"],
+            "name": user["name"],
+            "role": user["role"],
+            "address": user["address"],
+            "phone": user["phone"],
+            "created_at": user["created_at"],
+        } if user is not None else None,
+        **session,
+    }
+
+
 @app.patch("/me")
 def update_me(payload: ProfileUpdateRequest, authorization: Annotated[Optional[str], Header()] = None) -> dict:
     user = get_current_user(authorization)
@@ -381,7 +642,7 @@ def update_me(payload: ProfileUpdateRequest, authorization: Annotated[Optional[s
 
 
 @app.post("/change-password")
-def change_password(payload: PasswordChangeRequest, authorization: Annotated[Optional[str], Header()] = None) -> dict:
+def change_password(payload: PasswordChangeRequest, authorization: Annotated[Optional[str], Header()] = None) -> dict[str, Any]:
     user = get_current_user(authorization)
     if not verify_password(payload.current_password, user["password_salt"], user["password_hash"]):
         raise HTTPException(status_code=401, detail="Current password is incorrect")
