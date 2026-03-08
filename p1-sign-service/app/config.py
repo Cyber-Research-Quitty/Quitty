@@ -5,7 +5,7 @@ class Settings(BaseSettings):
     app_name: str = "QWitty P1 – PQC JWT Sign & Verify"
     environment: str = "dev"
 
-    default_alg: str = "ed25519-dev"
+    default_alg: str = "ml-dsa-44"
     keystore_path: str = "data/p1-keystore.json"
 
     # P1 -> P2 integration

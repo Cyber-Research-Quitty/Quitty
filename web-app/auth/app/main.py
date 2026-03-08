@@ -17,7 +17,7 @@ from pydantic import BaseModel, EmailStr
 ACCESS_TOKEN_TTL_MINUTES = int(os.getenv("ACCESS_TOKEN_TTL_MINUTES", "60"))
 AUTH_DB_PATH = os.getenv("AUTH_DB_PATH", "/data/auth.db")
 P1_SIGN_URL = os.getenv("P1_SIGN_URL", "http://host.docker.internal:8100/sign")
-P1_SIGN_ALG = os.getenv("P1_SIGN_ALG", "ed25519-dev")
+P1_SIGN_ALG = os.getenv("P1_SIGN_ALG", "ml-dsa-44")
 P3_VALIDATE_URL = os.getenv("P3_VALIDATE_URL", "http://host.docker.internal:8300/guard/validate")
 P4_REVOKE_URL = os.getenv("P4_REVOKE_URL", "http://host.docker.internal:8400/revoke")
 TOKEN_TIMEOUT_SECONDS = float(os.getenv("TOKEN_TIMEOUT_SECONDS", "5"))

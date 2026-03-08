@@ -1,17 +1,15 @@
 from __future__ import annotations
 
 from .crypto_backend import CryptoBackend, KeyPair, AlgName, derive_kid
-from pqcrypto.sign import ml_dsa_44, ml_dsa_65
+from pqcrypto.sign import ml_dsa_44
 
 
 class MLDSABackend(CryptoBackend):
-    SUPPORTED: set[AlgName] = {"ml-dsa-44", "ml-dsa-65"}
+    SUPPORTED: set[AlgName] = {"ml-dsa-44"}
 
     def _mod(self, alg: AlgName):
         if alg == "ml-dsa-44":
             return ml_dsa_44
-        if alg == "ml-dsa-65":
-            return ml_dsa_65
         raise ValueError(f"Unsupported alg for MLDSABackend: {alg}")
 
     def generate_keypair(self, alg: AlgName) -> KeyPair:

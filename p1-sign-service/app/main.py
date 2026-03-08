@@ -15,7 +15,7 @@ from .routes_integration import router as integration_router
 app = FastAPI(
     title=settings.app_name,
     version="0.1.0",
-    description="P1 service: PQC JWT sign & verify (ML-DSA-44/65).",
+    description="P1 service: PQC JWT sign & verify (ML-DSA-44 only).",
 )
 
 # CORS for demo web app / browser-based integration

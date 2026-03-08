@@ -6,7 +6,7 @@ from typing import Literal
 import hashlib
 import base64
 
-AlgName = Literal["ml-dsa-44", "ml-dsa-65", "ed25519-dev"]
+AlgName = Literal["ml-dsa-44"]
 
 
 @dataclass

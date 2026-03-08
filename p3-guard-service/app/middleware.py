@@ -22,7 +22,7 @@ from .signer_client import SignerVerifyError, signer_client
 BASE64URL_RE = re.compile(r"^[A-Za-z0-9\-_]*$")
 
 # Allowed algorithms (case-insensitive compare)
-ALLOWED_ALGORITHMS = {"ed25519-dev", "ml-dsa-44", "ml-dsa-65", "rs256", "es256"}
+ALLOWED_ALGORITHMS = {"ml-dsa-44"}
 
 
 def _b64url_decode(segment: str) -> bytes:
@@ -514,7 +514,7 @@ class JwtGuardMiddleware:
 
         # ---------------- PHASE 7: revocation check (P4) ----------------
         try:
-            rev = await revocation_client.is_revoked(jti)
+            rev = await revocation_client.is_revoked_token(jti=jti, sub=sub, kid=kid)
         except RevocationError:
             await self._reject(
                 scope,

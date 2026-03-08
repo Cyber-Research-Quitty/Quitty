@@ -5,12 +5,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict
 
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric.ed25519 import (
-    Ed25519PrivateKey,
-    Ed25519PublicKey,
-)
-
 from .utils import b64url_decode, b64url_encode, canonical_json
 
 
@@ -26,79 +20,40 @@ class RootSigner:
     def info(self) -> RootSignerInfo: ...
 
 
-class Ed25519RootSigner(RootSigner):
-    def __init__(self, priv: Ed25519PrivateKey, kid: str) -> None:
-        self._priv = priv
-        self._pub = priv.public_key()
-        self._kid = kid
-
-    @staticmethod
-    def generate(kid: str = "root-ed25519") -> "Ed25519RootSigner":
-        return Ed25519RootSigner(Ed25519PrivateKey.generate(), kid=kid)
-
-    def sign(self, msg: bytes) -> bytes:
-        return self._priv.sign(msg)
-
-    def info(self) -> RootSignerInfo:
-        pub_bytes = self._pub.public_bytes(
-            encoding=serialization.Encoding.Raw,
-            format=serialization.PublicFormat.Raw,
-        )
-        return RootSignerInfo(alg="ed25519", public_key=b64url_encode(pub_bytes), kid=self._kid)
-
-    def to_json(self) -> Dict[str, Any]:
-        priv_bytes = self._priv.private_bytes(
-            encoding=serialization.Encoding.Raw,
-            format=serialization.PrivateFormat.Raw,
-            encryption_algorithm=serialization.NoEncryption(),
-        )
-        return {"alg": "ed25519", "kid": self._kid, "private_key": b64url_encode(priv_bytes)}
-
-    @staticmethod
-    def from_json(obj: Dict[str, Any]) -> "Ed25519RootSigner":
-        priv = Ed25519PrivateKey.from_private_bytes(b64url_decode(obj["private_key"]))
-        return Ed25519RootSigner(priv, kid=obj.get("kid", "root-ed25519"))
-
-
-class Dilithium2RootSigner(RootSigner):
-    """
-    Optional: requires python-oqs.
-    Uses ML-DSA-44 (formerly known as Dilithium2) - NIST Post-Quantum Standard
-    """
+class MLDsa44RootSigner(RootSigner):
+    """ML-DSA-44 root signer backed by liboqs/python-oqs."""
     def __init__(self, kid: str, priv_b64: str, pub_b64: str) -> None:
         self._kid = kid
         self._priv_b64 = priv_b64
         self._pub_b64 = pub_b64
 
     @staticmethod
-    def generate(kid: str = "root-dilithium2") -> "Dilithium2RootSigner":
+    def generate(kid: str = "root-ml-dsa-44") -> "MLDsa44RootSigner":
         import oqs  # type: ignore
-        # Use ML-DSA-44 (the NIST standard name for Dilithium2 in liboqs 0.15+)
         with oqs.Signature("ML-DSA-44") as sig:
             pub = sig.generate_keypair()
             priv = sig.export_secret_key()
-        return Dilithium2RootSigner(kid=kid, priv_b64=b64url_encode(priv), pub_b64=b64url_encode(pub))
+        return MLDsa44RootSigner(kid=kid, priv_b64=b64url_encode(priv), pub_b64=b64url_encode(pub))
 
     def sign(self, msg: bytes) -> bytes:
         import oqs  # type: ignore
-        # Create signature object with the secret key
         sig = oqs.Signature("ML-DSA-44", secret_key=b64url_decode(self._priv_b64))
         return sig.sign(msg)
 
     def info(self) -> RootSignerInfo:
-        return RootSignerInfo(alg="dilithium2", public_key=self._pub_b64, kid=self._kid)
+        return RootSignerInfo(alg="ml-dsa-44", public_key=self._pub_b64, kid=self._kid)
 
     def to_json(self) -> Dict[str, Any]:
         return {
-            "alg": "dilithium2",
+            "alg": "ml-dsa-44",
             "kid": self._kid,
             "private_key": self._priv_b64,
             "public_key": self._pub_b64,
         }
 
     @staticmethod
-    def from_json(obj: Dict[str, Any]) -> "Dilithium2RootSigner":
-        return Dilithium2RootSigner(kid=obj["kid"], priv_b64=obj["private_key"], pub_b64=obj["public_key"])
+    def from_json(obj: Dict[str, Any]) -> "MLDsa44RootSigner":
+        return MLDsa44RootSigner(kid=obj["kid"], priv_b64=obj["private_key"], pub_b64=obj["public_key"])
 
 
 def load_or_create_root_signer(alg: str, key_path: str) -> RootSigner:
@@ -106,23 +61,16 @@ def load_or_create_root_signer(alg: str, key_path: str) -> RootSigner:
 
     if p.exists():
         obj = json.loads(p.read_text())
-        if obj["alg"] == "ed25519":
-            return Ed25519RootSigner.from_json(obj)
-        if obj["alg"] == "dilithium2":
-            return Dilithium2RootSigner.from_json(obj)
+        if obj["alg"] == "ml-dsa-44":
+            return MLDsa44RootSigner.from_json(obj)
         raise ValueError("Unknown stored root signer alg")
 
-    if alg == "ed25519":
-        signer = Ed25519RootSigner.generate()
+    if alg == "ml-dsa-44":
+        signer = MLDsa44RootSigner.generate()
         p.write_text(json.dumps(signer.to_json(), indent=2))
         return signer
 
-    if alg == "dilithium2":
-        signer = Dilithium2RootSigner.generate()
-        p.write_text(json.dumps(signer.to_json(), indent=2))
-        return signer
-
-    raise ValueError("ROOT_SIGNER must be ed25519 or dilithium2")
+    raise ValueError("ROOT_SIGNER must be ml-dsa-44")
 
 
 def sign_root_bundle(signer: RootSigner, root_b64: str, epoch: int) -> Dict[str, Any]:
@@ -153,20 +101,11 @@ def verify_root_bundle(bundle: Dict[str, Any]) -> bool:
     payload = {"root_hash": bundle["root_hash"], "epoch": bundle["epoch"]}
     msg = canonical_json(payload)
 
-    if sig_alg == "ed25519":
-        pub = Ed25519PublicKey.from_public_bytes(b64url_decode(sig_pub))
-        try:
-            pub.verify(signature, msg)
-            return True
-        except Exception:
-            return False
-
-    if sig_alg == "dilithium2":
+    if sig_alg == "ml-dsa-44":
         try:
             import oqs  # type: ignore
         except Exception:
             return False
-        # Use ML-DSA-44 (the NIST standard name for Dilithium2 in liboqs 0.15+)
         with oqs.Signature("ML-DSA-44") as s:
             return s.verify(msg, signature, b64url_decode(sig_pub))
 
@@ -185,20 +124,11 @@ def verify_root_bundle_pinned(bundle: Dict[str, Any], pinned_pub_b64: str) -> bo
     payload = {"root_hash": bundle["root_hash"], "epoch": bundle["epoch"]}
     msg = canonical_json(payload)
 
-    if sig_alg == "ed25519":
-        pub = Ed25519PublicKey.from_public_bytes(b64url_decode(pinned_pub_b64))
-        try:
-            pub.verify(signature, msg)
-            return True
-        except Exception:
-            return False
-
-    if sig_alg == "dilithium2":
+    if sig_alg == "ml-dsa-44":
         try:
             import oqs  # type: ignore
         except Exception:
             return False
-        # Use ML-DSA-44 (the NIST standard name for Dilithium2 in liboqs 0.15+)
         with oqs.Signature("ML-DSA-44") as s:
             return s.verify(msg, signature, b64url_decode(pinned_pub_b64))
 

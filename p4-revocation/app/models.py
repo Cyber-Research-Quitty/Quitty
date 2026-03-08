@@ -12,9 +12,37 @@ class RevokeResponse(BaseModel):
     event_id: str
     published: bool
 
+
+class RevokeTokenRequest(BaseModel):
+    token: str = Field(..., min_length=1, description="JWT token to verify via P1 and revoke by claims")
+    scopes: list[Literal["jti", "sub", "kid"]] = Field(
+        default_factory=lambda: ["jti", "sub", "kid"],
+        description="Which values to revoke from verified token (any of: jti, sub, kid)",
+    )
+    ttl_seconds: Optional[int] = Field(None, ge=30, le=60 * 60 * 24 * 30)
+
+
+class RevokeTokenResponse(BaseModel):
+    revoked: Dict[str, str]
+    event_ids: list[str]
+    published: bool
+
+
 class RevocationStatusResponse(BaseModel):
     jti: str
     revoked: bool
+    revokedAt: Optional[str] = None
+
+
+class RevocationCheckRequest(BaseModel):
+    jti: Optional[str] = None
+    sub: Optional[str] = None
+    kid: Optional[str] = None
+
+
+class RevocationCheckResponse(BaseModel):
+    revoked: bool
+    reason: Optional[Literal["jti", "sub", "kid"]] = None
     revokedAt: Optional[str] = None
 
 

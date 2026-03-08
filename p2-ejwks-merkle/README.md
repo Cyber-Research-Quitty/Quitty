@@ -18,11 +18,10 @@ Import a key
 curl -X POST http://127.0.0.1:8200/internal/keys/import \
   -H "Content-Type: application/json" \
   -d '{
-    "kid": "demo-ed25519-1",
-    "kty": "OKP",
-    "crv": "Ed25519",
-    "x": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
-    "alg": "EdDSA"
+    "kid": "demo-ml-dsa-44-1",
+    "kty": "PQC",
+    "pk": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+    "alg": "ml-dsa-44"
   }'
 
 
@@ -32,12 +31,12 @@ curl http://127.0.0.1:8200/jwks/root
 
 Get key + proof
 
-curl http://127.0.0.1:8200/jwks/proof/demo-ed25519-1
+curl http://127.0.0.1:8200/jwks/proof/demo-ml-dsa-44-1
 
 
 Client verification
 
-python client_verify.py --kid demo-ed25519-1 --base-url http://127.0.0.1:8200
+python client_verify.py --kid demo-ml-dsa-44-1 --base-url http://127.0.0.1:8200
 
 --------------------------
 8) How to connect this to your P1 Sign Service (real integration)

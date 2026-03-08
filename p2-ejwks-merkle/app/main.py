@@ -24,11 +24,11 @@ logger = logging.getLogger(__name__)
 APP_DB_PATH = os.getenv("APP_DB_PATH", "./keys.db")
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
-ROOT_SIGNER = os.getenv("ROOT_SIGNER", "ed25519")
+ROOT_SIGNER = os.getenv("ROOT_SIGNER", "ml-dsa-44")
 ROOT_SIGNER_KEY_PATH = os.getenv("ROOT_SIGNER_KEY_PATH", "./root_signer_key.json")
 
 # NEW: Transparency log signer (keep separate key)
-LOG_SIGNER = os.getenv("LOG_SIGNER", "ed25519")
+LOG_SIGNER = os.getenv("LOG_SIGNER", "ml-dsa-44")
 LOG_SIGNER_KEY_PATH = os.getenv("LOG_SIGNER_KEY_PATH", "./log_signer_key.json")
 
 BLOOM_BITS = int(os.getenv("BLOOM_BITS", "1048576"))

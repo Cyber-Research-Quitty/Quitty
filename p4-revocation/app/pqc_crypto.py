@@ -20,18 +20,11 @@ except Exception as exc:
     _OQS_IMPORT_ERROR = exc
 
 _PQ44_IMPORT_ERROR: Optional[Exception] = None
-_PQ65_IMPORT_ERROR: Optional[Exception] = None
 try:
     from pqcrypto.sign import ml_dsa_44 as _pq_mldsa_44  # type: ignore
 except Exception as exc:
     _pq_mldsa_44 = None
     _PQ44_IMPORT_ERROR = exc
-
-try:
-    from pqcrypto.sign import ml_dsa_65 as _pq_mldsa_65  # type: ignore
-except Exception as exc:
-    _pq_mldsa_65 = None
-    _PQ65_IMPORT_ERROR = exc
 
 from cryptography.hazmat.primitives.asymmetric import x25519
 from cryptography.hazmat.primitives import serialization
@@ -62,10 +55,8 @@ _KEM_FALLBACKS = (
 )
 _SIG_FALLBACKS = (
     "ML-DSA-44",
-    "Dilithium2",
 )
 _PQ_SIG_ALG_44 = "pqcrypto-ml-dsa-44"
-_PQ_SIG_ALG_65 = "pqcrypto-ml-dsa-65"
 _KEYRING_LOCK = threading.Lock()
 
 
@@ -82,36 +73,24 @@ def _oqs_sig_available() -> bool:
 
 
 def _pqcrypto_sig_available() -> bool:
-    return _pq_mldsa_44 is not None or _pq_mldsa_65 is not None
+    return _pq_mldsa_44 is not None
 
 
 def _pqcrypto_module_for_alg(alg: str):
-    if alg == _PQ_SIG_ALG_65 and _pq_mldsa_65 is not None:
-        return _pq_mldsa_65
     if alg == _PQ_SIG_ALG_44 and _pq_mldsa_44 is not None:
         return _pq_mldsa_44
-    if _pq_mldsa_44 is not None:
-        return _pq_mldsa_44
-    if _pq_mldsa_65 is not None:
-        return _pq_mldsa_65
     return None
 
 
 def _resolve_pqcrypto_sig_alg() -> str:
-    preferred = (PQC_SIGNING_ALG or "").lower().replace("_", "-")
-    if "65" in preferred and _pq_mldsa_65 is not None:
-        return _PQ_SIG_ALG_65
-    if "44" in preferred and _pq_mldsa_44 is not None:
-        return _PQ_SIG_ALG_44
-    if "dilithium2" in preferred and _pq_mldsa_44 is not None:
+    preferred = (PQC_SIGNING_ALG or "").upper().replace("_", "-")
+    if preferred == "ML-DSA-44" and _pq_mldsa_44 is not None:
         return _PQ_SIG_ALG_44
     if _pq_mldsa_44 is not None:
         return _PQ_SIG_ALG_44
-    if _pq_mldsa_65 is not None:
-        return _PQ_SIG_ALG_65
     raise RuntimeError(
-        "No pqcrypto ML-DSA backend available. "
-        f"ml_dsa_44 import error: {_PQ44_IMPORT_ERROR}; ml_dsa_65 import error: {_PQ65_IMPORT_ERROR}"
+        "No pqcrypto ML-DSA-44 backend available. "
+        f"ml_dsa_44 import error: {_PQ44_IMPORT_ERROR}"
     )
 
 
@@ -208,7 +187,7 @@ def _resolve_sig_alg() -> str:
         except Exception:
             continue
 
-    raise RuntimeError("No supported ML-DSA/Dilithium mechanism available for oqs")
+    raise RuntimeError("No supported ML-DSA-44 mechanism available for oqs")
 
 
 def _keyring_path() -> Path:
@@ -273,8 +252,7 @@ def _ensure_signing_key() -> dict[str, str]:
             raise RuntimeError(
                 "No signature backend available. "
                 f"oqs import error: {_OQS_IMPORT_ERROR}; "
-                f"pq44 import error: {_PQ44_IMPORT_ERROR}; "
-                f"pq65 import error: {_PQ65_IMPORT_ERROR}"
+                f"pq44 import error: {_PQ44_IMPORT_ERROR}"
             )
 
         rec = {

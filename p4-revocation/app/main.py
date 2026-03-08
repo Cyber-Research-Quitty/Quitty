@@ -20,7 +20,7 @@ from .store_sqlite import (
 )
 from .pqc_crypto import canonical_bytes, dilithium_sign, generate_kyber_keypair
 from .kafka_pub import start_producer, publish_event, publish_token_event
-from .jwt_utils import create_access_token, validate_token, get_token_claims, is_token_revoked
+from .jwt_utils import get_token_claims, is_token_revoked
 from .p1_client import p1_signer_client
 from .refresh_token_utils import (
     create_refresh_token, perform_kyber_refresh,
@@ -29,7 +29,11 @@ from .refresh_token_utils import (
 from .models import (
     RevokeRequest,
     RevokeResponse,
+    RevokeTokenRequest,
+    RevokeTokenResponse,
     RevocationStatusResponse,
+    RevocationCheckRequest,
+    RevocationCheckResponse,
     TokenRequest,
     TokenResponse,
     TokenValidateRequest,
@@ -65,6 +69,59 @@ def _decode_unverified_claims(token: str) -> dict:
         return {}
 
 
+def _decode_unverified_header(token: str) -> dict:
+    try:
+        parts = token.split(".")
+        if len(parts) != 3:
+            return {}
+        header_segment = parts[0]
+        header_segment += "=" * (-len(header_segment) % 4)
+        header_bytes = base64.urlsafe_b64decode(header_segment.encode("ascii"))
+        header = json.loads(header_bytes.decode("utf-8"))
+        return header if isinstance(header, dict) else {}
+    except Exception:
+        return {}
+
+
+async def _publish_revocation_event(
+    rev_type: str,
+    value: str,
+    ttl_seconds: Optional[int] = None,
+) -> str:
+    global rds, producer
+    if not rds or not producer:
+        raise HTTPException(status_code=503, detail="Service not ready")
+
+    event_id = str(uuid.uuid4())
+    nonce = secrets.token_urlsafe(16)
+    ts = utc_now_iso()
+
+    unsigned = {
+        "event_id": event_id,
+        "type": rev_type,
+        "value": value,
+        "ts": ts,
+        "nonce": nonce,
+        "kid": PQC_SIGNING_KEY_ID,
+    }
+    sig = dilithium_sign(canonical_bytes(unsigned))
+
+    event = dict(unsigned)
+    event["sig"] = sig
+
+    insert_event(event)
+
+    keyspace = rev_type.split("_")[1]  # jti/sub/kid
+    redis_key = f"revoked:{keyspace}:{value}"
+    if ttl_seconds:
+        await rds.setex(redis_key, ttl_seconds, "1")
+    else:
+        await rds.set(redis_key, "1")
+
+    await publish_event(producer, canonical_bytes(event))
+    return event_id
+
+
 async def issue_access_token(
     subject: str,
     expires_minutes: Optional[int] = None,
@@ -85,14 +142,11 @@ async def issue_access_token(
     if additional_claims:
         claims.update(additional_claims)
 
-    if ACCESS_TOKEN_PROVIDER == "local":
-        token = create_access_token(
-            subject=subject,
-            additional_claims=additional_claims,
-            expires_delta=timedelta(minutes=expiry_minutes),
+    if ACCESS_TOKEN_PROVIDER != "p1":
+        raise HTTPException(
+            status_code=500,
+            detail="Unsupported ACCESS_TOKEN_PROVIDER; only 'p1' is allowed in PQ mode",
         )
-        decoded = get_token_claims(token)
-        return token, decoded
 
     token = await p1_signer_client.sign_access_token(claims=claims, alg=P1_ACCESS_TOKEN_ALG)
     decoded = _decode_unverified_claims(token)
@@ -112,19 +166,24 @@ async def validate_access_token_provider_aware(
     """
     global rds
 
-    if ACCESS_TOKEN_PROVIDER == "local":
-        return await validate_token(
-            token=token,
-            redis_client=rds,
-            check_revocation=check_revocation,
+    if ACCESS_TOKEN_PROVIDER != "p1":
+        raise HTTPException(
+            status_code=500,
+            detail="Unsupported ACCESS_TOKEN_PROVIDER; only 'p1' is allowed in PQ mode",
         )
 
     claims = _decode_unverified_claims(token)
     if not claims:
         raise HTTPException(status_code=401, detail="Invalid token format")
 
+    header = _decode_unverified_header(token)
+    claims_for_revocation = dict(claims)
+    kid = header.get("kid")
+    if isinstance(kid, str) and kid:
+        claims_for_revocation["kid"] = kid
+
     if check_revocation:
-        is_revoked, reason = await is_token_revoked(claims, rds)
+        is_revoked, reason = await is_token_revoked(claims_for_revocation, rds)
         if is_revoked:
             if reason == "sub":
                 detail = "Token has been revoked (all tokens for this subject are revoked)"
@@ -207,45 +266,91 @@ async def get_revocation_status(jti: str):
     return RevocationStatusResponse(jti=jti, revoked=True, revokedAt=revoked_at)
 
 
-@app.post("/revoke", response_model=RevokeResponse)
-async def revoke(req: RevokeRequest):
-    global rds, producer
-    if not rds or not producer:
+@app.post("/v1/revocations/check", response_model=RevocationCheckResponse)
+async def check_revocation_status(req: RevocationCheckRequest):
+    """
+    Check revocation by any of jti/sub/kid.
+    Returns revoked=true if any supplied identifier is revoked.
+    """
+    global rds
+    if not rds:
         raise HTTPException(status_code=503, detail="Service not ready")
 
-    event_id = str(uuid.uuid4())
-    nonce = secrets.token_urlsafe(16)
-    ts = utc_now_iso()
+    if not req.jti and not req.sub and not req.kid:
+        raise HTTPException(status_code=400, detail="At least one of jti/sub/kid is required")
 
-    unsigned = {
-        "event_id": event_id,
-        "type": req.type,
-        "value": req.value,
-        "ts": ts,
-        "nonce": nonce,
-        "kid": PQC_SIGNING_KEY_ID,
-    }
-    sig = dilithium_sign(canonical_bytes(unsigned))
+    if req.jti and await rds.get(f"revoked:jti:{req.jti}"):
+        return RevocationCheckResponse(
+            revoked=True,
+            reason="jti",
+            revokedAt=get_latest_revocation_ts("revoke_jti", req.jti),
+        )
 
-    event = dict(unsigned)
-    event["sig"] = sig
+    if req.sub and await rds.get(f"revoked:sub:{req.sub}"):
+        return RevocationCheckResponse(
+            revoked=True,
+            reason="sub",
+            revokedAt=get_latest_revocation_ts("revoke_sub", req.sub),
+        )
 
-    # 1) Durable audit log (SQLite)
-    insert_event(event)
+    if req.kid and await rds.get(f"revoked:kid:{req.kid}"):
+        return RevocationCheckResponse(
+            revoked=True,
+            reason="kid",
+            revokedAt=get_latest_revocation_ts("revoke_kid", req.kid),
+        )
 
-    # 2) Fast enforcement cache (Redis)
-    keyspace = req.type.split("_")[1]  # jti/sub/kid
-    redis_key = f"revoked:{keyspace}:{req.value}"
+    return RevocationCheckResponse(revoked=False)
 
-    if req.ttl_seconds:
-        await rds.setex(redis_key, req.ttl_seconds, "1")
-    else:
-        await rds.set(redis_key, "1")
 
-    # 3) Broadcast to other services (Kafka)
-    await publish_event(producer, canonical_bytes(event))
-
+@app.post("/revoke", response_model=RevokeResponse)
+async def revoke(req: RevokeRequest):
+    event_id = await _publish_revocation_event(req.type, req.value, req.ttl_seconds)
     return RevokeResponse(event_id=event_id, published=True)
+
+
+@app.post("/revoke/token", response_model=RevokeTokenResponse)
+async def revoke_from_verified_token(req: RevokeTokenRequest):
+    """
+    Verify token with P1, then revoke by selected identifiers from verified token:
+    - jti from claims
+    - sub from claims
+    - kid from JOSE header (via P1 verify response)
+    """
+    verify_result = await p1_signer_client.verify_access_token(req.token)
+    if not bool(verify_result.get("valid")):
+        reason = verify_result.get("error") or verify_result.get("reason") or "signature_invalid"
+        raise HTTPException(status_code=401, detail=f"Token verification failed: {reason}")
+
+    claims = verify_result.get("claims")
+    if not isinstance(claims, dict):
+        raise HTTPException(status_code=400, detail="Verified token missing claims")
+
+    kid = verify_result.get("kid")
+    if not isinstance(kid, str) or not kid:
+        kid = None
+
+    lookup = {
+        "jti": claims.get("jti") if isinstance(claims.get("jti"), str) and claims.get("jti") else None,
+        "sub": claims.get("sub") if isinstance(claims.get("sub"), str) and claims.get("sub") else None,
+        "kid": kid,
+    }
+
+    if not req.scopes:
+        raise HTTPException(status_code=400, detail="At least one scope is required")
+
+    event_ids: list[str] = []
+    revoked: dict[str, str] = {}
+    for scope in req.scopes:
+        value = lookup.get(scope)
+        if not value:
+            raise HTTPException(status_code=400, detail=f"Token missing required value for scope: {scope}")
+        rev_type = f"revoke_{scope}"
+        event_id = await _publish_revocation_event(rev_type, value, req.ttl_seconds)
+        event_ids.append(event_id)
+        revoked[scope] = value
+
+    return RevokeTokenResponse(revoked=revoked, event_ids=event_ids, published=True)
 
 
 @app.post("/token", response_model=TokenResponse)
@@ -320,7 +425,12 @@ async def validate_token_endpoint(req: TokenValidateRequest):
             is_revoked = False
             revocation_reason = None
             if req.check_revocation:
-                is_revoked, revocation_reason = await is_token_revoked(claims, rds)
+                claims_for_revocation = dict(claims)
+                header = _decode_unverified_header(req.token)
+                kid = header.get("kid")
+                if isinstance(kid, str) and kid:
+                    claims_for_revocation["kid"] = kid
+                is_revoked, revocation_reason = await is_token_revoked(claims_for_revocation, rds)
             
             # Determine the actual reason for failure
             # If validate_token raised a revocation exception, use that message
@@ -385,7 +495,12 @@ async def inspect_token(token: str):
         is_revoked = False
         revocation_reason = None
         if rds:
-            is_revoked, revocation_reason = await is_token_revoked(claims, rds)
+            claims_for_revocation = dict(claims)
+            header = _decode_unverified_header(token)
+            kid = header.get("kid")
+            if isinstance(kid, str) and kid:
+                claims_for_revocation["kid"] = kid
+            is_revoked, revocation_reason = await is_token_revoked(claims_for_revocation, rds)
         
         return {
             "claims": claims,

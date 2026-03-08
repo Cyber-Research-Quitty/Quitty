@@ -33,7 +33,7 @@ The API is exposed on `http://localhost:8100`.
 The compose file already sets defaults:
 
 - `ENVIRONMENT=dev`
-- `DEFAULT_ALG=ed25519-dev`
+- `DEFAULT_ALG=ml-dsa-44`
 - `KEYSTORE_PATH=data/p1-keystore.json`
 - `P2_EXPORT_URL` optional (empty by default)
 - `P2_TIMEOUT_SECONDS=3.0`
@@ -61,7 +61,7 @@ Expected response includes:
 ```bash
 curl -X POST http://localhost:8100/sign \
   -H "Content-Type: application/json" \
-  -d '{"claims":{"sub":"alice","role":"user"},"alg":"ed25519-dev"}'
+  -d '{"claims":{"sub":"alice","role":"user"},"alg":"ml-dsa-44"}'
 ```
 
 ### 2) Verify the token

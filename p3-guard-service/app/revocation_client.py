@@ -59,5 +59,29 @@ class RevocationClient:
             f"Last error: {last_error}"
         )
 
+    async def is_revoked_token(self, *, jti: str, sub: str | None = None, kid: str | None = None) -> Dict[str, Any]:
+        """
+        Preferred check: POST /v1/revocations/check with jti/sub/kid.
+        Fallback: legacy jti-only check.
+        """
+        check_url = REVOCATION_BASE_URL.rstrip("/") + "/v1/revocations/check"
+        payload: Dict[str, Any] = {"jti": jti}
+        if isinstance(sub, str) and sub:
+            payload["sub"] = sub
+        if isinstance(kid, str) and kid:
+            payload["kid"] = kid
+
+        try:
+            resp = await self._client.post(check_url, json=payload)
+            if resp.status_code == 200:
+                data = resp.json()
+                if isinstance(data, dict) and "revoked" in data:
+                    return data
+            # If endpoint is missing or malformed, fall back to jti-only path.
+        except Exception:
+            pass
+
+        return await self.is_revoked(jti)
+
 
 revocation_client = RevocationClient()

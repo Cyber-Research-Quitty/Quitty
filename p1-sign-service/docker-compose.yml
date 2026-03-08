@@ -8,7 +8,7 @@ services:
       - "8100:8100"
     environment:
       ENVIRONMENT: dev
-      DEFAULT_ALG: ed25519-dev
+      DEFAULT_ALG: ml-dsa-44
       KEYSTORE_PATH: data/p1-keystore.json
       # Default wired to local P2 host port for out-of-box export from containerized P1.
       P2_EXPORT_URL: ${P2_EXPORT_URL:-http://host.docker.internal:8200/internal/keys/import}

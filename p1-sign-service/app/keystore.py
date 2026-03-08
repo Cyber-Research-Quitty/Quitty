@@ -249,28 +249,19 @@ class KeyStore:
 
             pub = bytes.fromhex(rec["public_key"])
 
-            if rec["alg"].startswith("ml-dsa"):
-                jwk = {
-                    "kty": "PQC",
-                    "use": "sig",
-                    "kid": kid,
-                    "alg": rec["alg"],
-                    "pk": _b64url(pub),
-                    "key_len": len(pub),
-                    "status": rec.get("status"),
-                }
-            else:
-                # For ed25519-dev, still keeping a JWKS-like shape
-                jwk = {
-                    "kty": "OKP",
-                    "crv": "Ed25519",
-                    "use": "sig",
-                    "kid": kid,
-                    "alg": rec["alg"],
-                    "x": _b64url(pub),
-                    "key_len": len(pub),
-                    "status": rec.get("status"),
-                }
+            if rec["alg"] != "ml-dsa-44":
+                # Strict PQ-only mode: ignore legacy/non-ML-DSA keys in JWKS output.
+                continue
+
+            jwk = {
+                "kty": "PQC",
+                "use": "sig",
+                "kid": kid,
+                "alg": rec["alg"],
+                "pk": _b64url(pub),
+                "key_len": len(pub),
+                "status": rec.get("status"),
+            }
 
             jwk_list.append(jwk)
 

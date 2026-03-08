@@ -21,12 +21,7 @@ def load_pinned_key_from_file(key_path: str) -> str:
         if not p.exists():
             return ""
         obj = json.loads(p.read_text())
-        if obj["alg"] == "ed25519":
-            # For Ed25519, derive public key from private key
-            from app.signer import Ed25519RootSigner
-            signer = Ed25519RootSigner.from_json(obj)
-            return signer.info().public_key
-        elif obj["alg"] == "dilithium2":
+        if obj["alg"] == "ml-dsa-44":
             return obj.get("public_key", "")
         return ""
     except Exception as e:
