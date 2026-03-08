@@ -110,6 +110,12 @@ class KeyStore:
                 for r in rows
             ]
 
+    def delete_by_kid(self, kid: str) -> bool:
+        with self._conn() as c:
+            cur = c.execute("DELETE FROM keys WHERE kid=?", (kid,))
+            c.commit()
+            return int(cur.rowcount) > 0
+
     # -------------------- Transparency checkpoints --------------------
     def _latest_checkpoint_row(self) -> Optional[sqlite3.Row]:
         with self._conn() as c:

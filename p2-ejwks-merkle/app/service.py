@@ -94,6 +94,12 @@ class EJWKSService:
         self.rebuild_tree()
         return {"kid": kid, "jkt": jkt}
 
+    def remove_key(self, kid: str) -> Dict[str, Any]:
+        removed = self.store.delete_by_kid(kid)
+        if removed:
+            self.rebuild_tree()
+        return {"kid": kid, "removed": removed}
+
     # ---------------- Root bundles ----------------
     def get_jwks_root_bundle(self) -> Optional[Dict[str, Any]]:
         raw = self.redis.get("root:jwks_bundle")

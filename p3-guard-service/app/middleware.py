@@ -308,15 +308,30 @@ class JwtGuardMiddleware:
             return
 
         if jwk is None:
-            await self._reject(
-                scope,
-                receive,
-                send,
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                error="invalid_token",
-                reason="kid_not_found",
-            )
-            return
+            # Real-world rotation race: force one JWKS refresh before rejecting.
+            try:
+                jwk = await jwks_client.refresh_and_get_key_by_kid(kid)
+            except JWKSFetchError:
+                await self._reject(
+                    scope,
+                    receive,
+                    send,
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    error="service_unavailable",
+                    reason="jwks_unavailable",
+                )
+                return
+
+            if jwk is None:
+                await self._reject(
+                    scope,
+                    receive,
+                    send,
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    error="invalid_token",
+                    reason="kid_not_found",
+                )
+                return
 
         jwk_alg = jwk.get("alg")
         if isinstance(jwk_alg, str) and jwk_alg and jwk_alg.lower() != alg_norm:

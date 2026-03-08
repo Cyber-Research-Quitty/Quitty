@@ -48,24 +48,12 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-### 2. Start Infrastructure (Redis & Kafka)
+### 2. Start Full Stack With Docker Compose (API + Consumer + Infra)
 ```bash
 docker-compose up -d
 ```
 
-### 3. Start the API Server
-```bash
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8400
-```
-
-### 4. Start the Kafka Consumer (in another terminal)
-```bash
-# Run from project root directory
-cd /path/to/revocation
-python -m consumer
-```
-
-### 5. Test the API
+### 3. Test the API
 ```bash
 # Visit http://localhost:8400/docs for interactive API documentation
 ```

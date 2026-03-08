@@ -1,5 +1,5 @@
 from typing import Literal, Optional, Dict, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 RevType = Literal["revoke_jti", "revoke_sub", "revoke_kid"]
 
@@ -7,6 +7,15 @@ class RevokeRequest(BaseModel):
     type: RevType
     value: str = Field(..., min_length=1, max_length=512)
     ttl_seconds: Optional[int] = Field(None, ge=30, le=60 * 60 * 24 * 30)
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {"type": "revoke_jti", "value": "9f4f5f57-d620-4fd2-a352-186a6abf5988", "ttl_seconds": 30},
+                {"type": "revoke_sub", "value": "alice", "ttl_seconds": 30},
+                {"type": "revoke_kid", "value": "QEF6w3BaO5bBQSJhAo5B7g", "ttl_seconds": 30},
+            ]
+        }
+    )
 
 class RevokeResponse(BaseModel):
     event_id: str
@@ -20,9 +29,23 @@ class RevokeTokenRequest(BaseModel):
         description="Which values to revoke from verified token (any of: jti, sub, kid)",
     )
     ttl_seconds: Optional[int] = Field(None, ge=30, le=60 * 60 * 24 * 30)
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {"token": "eyJ...<P1_access_token>...", "scopes": ["jti"], "ttl_seconds": 30},
+                {"token": "eyJ...<P1_access_token>...", "scopes": ["sub"], "ttl_seconds": 30},
+                {"token": "eyJ...<P1_access_token>...", "scopes": ["kid"], "ttl_seconds": 30},
+                {"token": "eyJ...<P1_access_token>...", "scopes": ["jti", "sub", "kid"], "ttl_seconds": 30},
+            ]
+        }
+    )
 
 
 class RevokeTokenResponse(BaseModel):
+    access_token: str = Field(..., description="The access token that was verified via P1 before revocation")
+    sub: str = Field(..., description="Token subject extracted from verified P1 claims")
+    jti: str = Field(..., description="Token JTI extracted from verified P1 claims")
+    kid: str = Field(..., description="Token KID extracted from verified P1 header")
     revoked: Dict[str, str]
     event_ids: list[str]
     published: bool
@@ -46,6 +69,32 @@ class RevocationCheckResponse(BaseModel):
     revokedAt: Optional[str] = None
 
 
+class SyncP1TokenRequest(BaseModel):
+    token: str = Field(..., min_length=1, description="P1-issued access token")
+
+
+class SyncP1TokenResponse(BaseModel):
+    access_token: str
+    synced: bool
+    sub: str
+    jti: str
+    kid: str
+    alg: Optional[str] = None
+    iss: Optional[str] = None
+
+
+class P1TokenMetaResponse(BaseModel):
+    found: bool
+    sub: Optional[str] = None
+    jti: str
+    kid: Optional[str] = None
+    alg: Optional[str] = None
+    iss: Optional[str] = None
+    synced_at: Optional[str] = None
+    revoked: bool = False
+    revocation_reason: Optional[Literal["jti", "sub", "kid"]] = None
+
+
 # JWT Token Models
 class TokenRequest(BaseModel):
     subject: str = Field(..., min_length=1, description="Subject (user ID) for the token")
@@ -58,6 +107,8 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
     expires_in: int
     jti: str = Field(..., description="JWT ID for revocation tracking")
+    sub: str = Field(..., description="Subject from P1-issued access token")
+    kid: str = Field(..., description="Signing key id from P1-issued access token header")
     subject: str
 
 

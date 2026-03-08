@@ -1,4 +1,39 @@
 services:
+  p4-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: p4-api
+    ports:
+      - "8400:8400"
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      KAFKA_BOOTSTRAP: kafka:9092
+      ACCESS_TOKEN_PROVIDER: p1
+      P1_SIGN_BASE_URL: ${P1_SIGN_BASE_URL:-http://host.docker.internal:8100}
+      P1_ACCESS_TOKEN_ALG: ml-dsa-44
+      JWT_ISSUER: p4-revocation-service
+    depends_on:
+      - redis
+      - kafka
+    restart: unless-stopped
+
+  p4-consumer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: p4-consumer
+    command: ["python", "-m", "consumer"]
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      KAFKA_BOOTSTRAP: kafka:9092
+      CONSUMER_GROUP_ID: revocation-consumers
+      CONSUMER_OFFSET_RESET: latest
+    depends_on:
+      - redis
+      - kafka
+    restart: unless-stopped
+
   redis:
     image: redis:7
     container_name: p4-redis

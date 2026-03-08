@@ -35,6 +35,48 @@ class KeyStore:
             "keys": {},
         }
 
+    def _normalize_active_map(self, active_raw: dict[str, Any], keys: dict[str, Any]) -> tuple[dict[str, list[str]], bool]:
+        """
+        Normalize `active` to the multi-active format:
+          active[alg] = [kid1, kid2, ...]
+        Returns (normalized_map, changed_flag).
+        """
+        normalized: dict[str, list[str]] = {}
+        changed = False
+
+        for alg, value in active_raw.items():
+            if isinstance(value, str):
+                candidates = [value]
+                changed = True
+            elif isinstance(value, list):
+                candidates = [v for v in value if isinstance(v, str)]
+                if len(candidates) != len(value):
+                    changed = True
+            else:
+                candidates = []
+                changed = True
+
+            out: list[str] = []
+            seen: set[str] = set()
+            for kid in candidates:
+                if kid in seen:
+                    changed = True
+                    continue
+                if kid not in keys:
+                    changed = True
+                    continue
+                seen.add(kid)
+                out.append(kid)
+
+            if out:
+                normalized[alg] = out
+            elif candidates:
+                changed = True
+
+        if normalized != active_raw:
+            changed = True
+        return normalized, changed
+
     def _load(self) -> dict[str, Any]:
         # If file doesn't exist -> create empty schema v1 structure (not writing yet)
         if not self.path.exists():
@@ -67,15 +109,13 @@ class KeyStore:
 
             self._apply_status_fields(data)
 
-        # self-heal: if active[alg] points to missing key, remove pointer
+        # self-heal + normalize active map to multi-active format
         keys = data.get("keys", {})
-        active = data.get("active", {})
-        changed = False
-        for alg, kid in list(active.items()):
-            if kid not in keys:
-                active.pop(alg, None)
-                changed = True
+        active_raw = data.get("active", {})
+        active, changed = self._normalize_active_map(active_raw, keys)
+        data["active"] = active
         if changed:
+            self._apply_status_fields(data)
             data["updatedAt"] = _now_iso()
             self._save(data)
 
@@ -91,11 +131,12 @@ class KeyStore:
 
     def _apply_status_fields(self, data: dict[str, Any]) -> None:
         """
-        Add record status ("active"/"inactive") based on the active pointer.
+        Add record status ("active"/"inactive") based on the active key lists.
         This does NOT change your signing/verifying logic, only improves clarity/stability.
         """
         keys = data.get("keys", {})
-        active = data.get("active", {})
+        active, _ = self._normalize_active_map(data.get("active", {}), keys)
+        data["active"] = active
 
         # Set all to inactive first
         for _, rec in keys.items():
@@ -103,10 +144,11 @@ class KeyStore:
                 rec["status"] = "inactive"
 
         # Mark active ones
-        for _, active_kid in active.items():
-            rec = keys.get(active_kid)
-            if isinstance(rec, dict):
-                rec["status"] = "active"
+        for _, active_kids in active.items():
+            for active_kid in active_kids:
+                rec = keys.get(active_kid)
+                if isinstance(rec, dict):
+                    rec["status"] = "active"
 
     def _kp_to_record(self, kp: KeyPair, status: str = "inactive") -> dict[str, Any]:
         return {
@@ -133,16 +175,31 @@ class KeyStore:
             return None
         return self._record_to_kp(rec)
 
-    def get_active_kid(self, alg: AlgName) -> str | None:
+    def get_active_kids(self, alg: AlgName) -> list[str]:
         data = self._load()
-        return data.get("active", {}).get(alg)
+        active = data.get("active", {}).get(alg, [])
+        if not isinstance(active, list):
+            return []
+        return list(active)
+
+    def get_active_kid(self, alg: AlgName) -> str | None:
+        active_kids = self.get_active_kids(alg)
+        if not active_kids:
+            return None
+        # Latest active key signs new tokens by default.
+        return active_kids[-1]
 
     def get_active_key(self, alg: AlgName) -> KeyPair:
         data = self._load()
         keys = data["keys"]
         active = data["active"]
 
-        active_kid = active.get(alg)
+        active_kids = active.get(alg, [])
+        if not isinstance(active_kids, list):
+            active_kids = []
+            active[alg] = active_kids
+
+        active_kid = active_kids[-1] if active_kids else None
         if active_kid:
             kp = self.get(active_kid)
             if kp and kp.alg == alg:
@@ -152,21 +209,18 @@ class KeyStore:
         backend = get_backend(alg)
         kp = backend.generate_keypair(alg)
 
-        # mark old active inactive (if any, just in case)
-        prev_active = active.get(alg)
-        if prev_active and prev_active in keys:
-            keys[prev_active]["status"] = "inactive"
-
         keys[kp.kid] = self._kp_to_record(kp, status="active")
-        active[alg] = kp.kid
+        active_kids.append(kp.kid)
+        active[alg] = active_kids
+        self._apply_status_fields(data)
         self._save(data)
 
         return kp
 
     def rotate(self, alg: AlgName) -> KeyPair:
         """
-        Generate a new keypair for alg and switch active pointer.
-        Old keys remain stored so verification of older tokens still works.
+        Generate a new keypair for alg and add it to the active set.
+        Older active keys remain active; older inactive keys remain stored.
         """
         data = self._load()
         keys = data["keys"]
@@ -175,16 +229,101 @@ class KeyStore:
         backend = get_backend(alg)
         kp = backend.generate_keypair(alg)
 
-        # mark previous active as inactive
-        prev_active = active.get(alg)
-        if prev_active and prev_active in keys:
-            keys[prev_active]["status"] = "inactive"
-
         keys[kp.kid] = self._kp_to_record(kp, status="active")
-        active[alg] = kp.kid
+        active_kids = active.get(alg, [])
+        if not isinstance(active_kids, list):
+            active_kids = []
+        active_kids.append(kp.kid)
+        # Deduplicate while preserving order.
+        active[alg] = list(dict.fromkeys(active_kids))
+        self._apply_status_fields(data)
         self._save(data)
 
         return kp
+
+    def set_signing_kid(self, alg: AlgName, kid: str) -> KeyPair:
+        """
+        Select which active key should sign new tokens for alg.
+        Implementation detail: selected key is moved to the end of active list.
+        """
+        data = self._load()
+        keys = data.get("keys", {})
+        rec = keys.get(kid)
+        if not isinstance(rec, dict):
+            raise ValueError("kid_not_found")
+        if rec.get("alg") != alg:
+            raise ValueError("kid_alg_mismatch")
+
+        active = data.setdefault("active", {})
+        active_kids = active.get(alg, [])
+        if not isinstance(active_kids, list):
+            active_kids = []
+
+        if kid not in active_kids:
+            raise ValueError("kid_not_active")
+
+        active_kids = [k for k in active_kids if k != kid]
+        active_kids.append(kid)
+        active[alg] = active_kids
+        self._apply_status_fields(data)
+        self._save(data)
+        return self._record_to_kp(rec)
+
+    def activate_kid(self, alg: AlgName, kid: str, make_signing: bool = True) -> KeyPair:
+        """
+        Mark an existing key as active for alg.
+        If make_signing=True, it becomes default signer (moved to end).
+        """
+        data = self._load()
+        keys = data.get("keys", {})
+        rec = keys.get(kid)
+        if not isinstance(rec, dict):
+            raise ValueError("kid_not_found")
+        if rec.get("alg") != alg:
+            raise ValueError("kid_alg_mismatch")
+
+        active = data.setdefault("active", {})
+        active_kids = active.get(alg, [])
+        if not isinstance(active_kids, list):
+            active_kids = []
+
+        if kid not in active_kids:
+            active_kids.append(kid)
+        if make_signing:
+            active_kids = [k for k in active_kids if k != kid] + [kid]
+
+        active[alg] = list(dict.fromkeys(active_kids))
+        self._apply_status_fields(data)
+        self._save(data)
+        return self._record_to_kp(rec)
+
+    def deactivate_kid(self, alg: AlgName, kid: str) -> KeyPair:
+        """
+        Mark an active key inactive for alg.
+        Safety: does not allow deactivating the last active key for that alg.
+        """
+        data = self._load()
+        keys = data.get("keys", {})
+        rec = keys.get(kid)
+        if not isinstance(rec, dict):
+            raise ValueError("kid_not_found")
+        if rec.get("alg") != alg:
+            raise ValueError("kid_alg_mismatch")
+
+        active = data.setdefault("active", {})
+        active_kids = active.get(alg, [])
+        if not isinstance(active_kids, list):
+            active_kids = []
+
+        if kid not in active_kids:
+            raise ValueError("kid_not_active")
+        if len(active_kids) <= 1:
+            raise ValueError("cannot_deactivate_last_active_key")
+
+        active[alg] = [k for k in active_kids if k != kid]
+        self._apply_status_fields(data)
+        self._save(data)
+        return self._record_to_kp(rec)
 
     def list_public(self, alg: AlgName | None = None, include_all: bool = True) -> dict[str, Any]:
         """
@@ -197,7 +336,7 @@ class KeyStore:
         if include_all:
             items = keys.items()
         else:
-            active_kids = set(active.values())
+            active_kids = {k for v in active.values() for k in (v if isinstance(v, list) else [])}
             items = ((kid, rec) for kid, rec in keys.items() if kid in active_kids)
 
         out = []
@@ -215,7 +354,7 @@ class KeyStore:
                     "public_key_len": len(pub),
                     "createdAt": rec.get("createdAt"),
                     "status": rec.get("status"),
-                    "is_active": active.get(rec["alg"]) == kid,
+                    "is_active": kid in set(active.get(rec["alg"], [])),
                 }
             )
 
@@ -239,7 +378,7 @@ class KeyStore:
         if include_all:
             items = keys.items()
         else:
-            active_kids = set(active.values())
+            active_kids = {k for v in active.values() for k in (v if isinstance(v, list) else [])}
             items = ((kid, rec) for kid, rec in keys.items() if kid in active_kids)
 
         jwk_list = []

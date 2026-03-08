@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 from .crypto_backend import AlgName
 from .keystore import keystore
 from .config import settings
-from .p2_client import post_json, P2ClientError
+from .p2_client import post_json, delete_json, P2ClientError
 
 router = APIRouter(prefix="/internal/keys", tags=["internal"])
 
@@ -39,6 +39,13 @@ def _resolve_export_jwk(alg: AlgName, kid: str) -> dict:
     if not jwk_match:
         raise HTTPException(status_code=500, detail="failed_to_build_jwk_for_kid")
     return jwk_match
+
+
+def _revoke_kid_in_p4(kid: str) -> dict:
+    if not settings.p4_revoke_url:
+        return {"revoked": False, "reason": "p4_revoke_url_not_configured"}
+    payload = {"type": "revoke_kid", "value": kid}
+    return post_json(settings.p4_revoke_url, payload, timeout_seconds=settings.p4_timeout_seconds)
 
 
 @router.post("/export")
@@ -102,4 +109,102 @@ def rotate_key(body: RotateRequest):
         "alg": kp.alg,
         "exported": exported,
         "p2_response": p2_resp,
+    }
+
+
+class SelectSigningKeyRequest(BaseModel):
+    alg: AlgName = Field(..., description="Algorithm namespace")
+    kid: str = Field(..., description="Active key id to use for new signatures")
+
+
+@router.post("/select-signing")
+def select_signing_key(body: SelectSigningKeyRequest):
+    try:
+        kp = keystore.set_signing_kid(body.alg, body.kid)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    return {"selected": True, "alg": kp.alg, "kid": kp.kid}
+
+
+class KeyStateChangeRequest(BaseModel):
+    alg: AlgName = Field(..., description="Algorithm namespace")
+    kid: str = Field(..., description="Key id to change")
+    make_signing: bool = Field(default=True, description="When activating, set this key as signer for new tokens")
+
+
+@router.post("/activate")
+def activate_key(body: KeyStateChangeRequest):
+    try:
+        kp = keystore.activate_kid(body.alg, body.kid, make_signing=body.make_signing)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    exported = False
+    p2_response = None
+    if settings.p2_export_url:
+        export_jwk = _resolve_export_jwk(body.alg, kp.kid)
+        try:
+            p2_response = post_json(
+                settings.p2_export_url,
+                export_jwk,
+                timeout_seconds=settings.p2_timeout_seconds,
+            )
+            exported = True
+        except P2ClientError as e:
+            raise HTTPException(status_code=502, detail=f"activated_but_export_failed: {e}")
+
+    return {
+        "activated": True,
+        "alg": kp.alg,
+        "kid": kp.kid,
+        "make_signing": body.make_signing,
+        "exported": exported,
+        "p2_response": p2_response,
+    }
+
+
+class DeactivateKeyRequest(BaseModel):
+    alg: AlgName = Field(..., description="Algorithm namespace")
+    kid: str = Field(..., description="Key id to deactivate")
+
+
+@router.post("/deactivate")
+def deactivate_key(body: DeactivateKeyRequest):
+    try:
+        kp = keystore.deactivate_kid(body.alg, body.kid)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    p2_removed = False
+    p2_response = None
+    if settings.p2_delete_url:
+        delete_url = settings.p2_delete_url.rstrip("/") + f"/{kp.kid}"
+        try:
+            p2_response = delete_json(delete_url, timeout_seconds=settings.p2_timeout_seconds)
+            p2_removed = True
+        except P2ClientError as e:
+            # Idempotent behavior: if key is already absent in P2, continue.
+            if "HTTP 404" in str(e):
+                p2_removed = False
+                p2_response = {"kid": kp.kid, "removed": False, "reason": "already_absent_in_p2"}
+            else:
+                raise HTTPException(status_code=502, detail=f"deactivated_but_p2_delete_failed: {e}")
+
+    p4_revoked = False
+    p4_response = None
+    try:
+        p4_response = _revoke_kid_in_p4(kp.kid)
+        p4_revoked = bool(p4_response)
+    except P2ClientError as e:
+        raise HTTPException(status_code=502, detail=f"deactivated_but_p4_revoke_failed: {e}")
+
+    return {
+        "deactivated": True,
+        "alg": kp.alg,
+        "kid": kp.kid,
+        "p2_removed": p2_removed,
+        "p2_response": p2_response,
+        "p4_revoked": p4_revoked,
+        "p4_response": p4_response,
     }

@@ -33,7 +33,7 @@ def make_jwt(
 def make_valid_jwt(
     *,
     kid: str = "test-key",
-    alg: str = "RS256",
+    alg: str = "ml-dsa-44",
     sub: str = "123",
     jti: str = "id-1",
     exp_offset: int = 600,
@@ -79,16 +79,20 @@ async def default_mocks(monkeypatch):
 
     # Default P2: key exists + matching alg
     async def fake_get_key_by_kid(kid: str):
-        return {"kid": kid, "alg": "RS256"}
+        return {"kid": kid, "alg": "ml-dsa-44"}
+
+    async def fake_refresh_and_get_key_by_kid(kid: str):
+        return {"kid": kid, "alg": "ml-dsa-44"}
 
     # Default P1: signature valid
     async def fake_verify(token: str):
         return {"valid": True}
 
     # Default P4: not revoked
-    async def fake_is_revoked(jti: str):
+    async def fake_is_revoked_token(*, jti: str, sub: str | None = None, kid: str | None = None):
         return {"revoked": False}
 
     monkeypatch.setattr(middleware.jwks_client, "get_key_by_kid", fake_get_key_by_kid)
+    monkeypatch.setattr(middleware.jwks_client, "refresh_and_get_key_by_kid", fake_refresh_and_get_key_by_kid)
     monkeypatch.setattr(middleware.signer_client, "verify", fake_verify)
-    monkeypatch.setattr(middleware.revocation_client, "is_revoked", fake_is_revoked)
+    monkeypatch.setattr(middleware.revocation_client, "is_revoked_token", fake_is_revoked_token)

@@ -140,6 +140,15 @@ def import_key(payload: Dict[str, Any]):
         logger.error(f"Failed to import key {kid}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Import failed: {str(e)}")
 
+
+@app.delete("/internal/keys/{kid}")
+def delete_key(kid: str):
+    logger.info(f"Deleting key: kid={kid}")
+    result = svc.remove_key(kid)
+    if not result["removed"]:
+        raise HTTPException(status_code=404, detail="unknown kid")
+    return result
+
 # -------------------- Transparency Log API --------------------
 
 @app.get("/log/root")

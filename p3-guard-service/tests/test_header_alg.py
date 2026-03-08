@@ -24,7 +24,7 @@ async def test_missing_alg(client):
 
 @pytest.mark.asyncio
 async def test_missing_kid(client):
-    header = {"typ": "JWT", "alg": "RS256"}
+    header = {"typ": "JWT", "alg": "ml-dsa-44"}
     payload = {"sub": "123", "jti": "id-1", "iat": 1, "exp": 9999999999}
     token = make_jwt(header, payload, "sig")
     r = await client.get("/protected-demo", headers={"Authorization": f"Bearer {token}"})
@@ -52,8 +52,11 @@ async def test_unsupported_algorithm(client):
 async def test_kid_not_found_in_p2(client, monkeypatch):
     async def fake_get_key_by_kid(kid: str):
         return None
+    async def fake_refresh_and_get_key_by_kid(kid: str):
+        return None
 
     monkeypatch.setattr(middleware.jwks_client, "get_key_by_kid", fake_get_key_by_kid)
+    monkeypatch.setattr(middleware.jwks_client, "refresh_and_get_key_by_kid", fake_refresh_and_get_key_by_kid)
 
     token = make_valid_jwt(kid="no-such-kid")
     r = await client.get("/protected-demo", headers={"Authorization": f"Bearer {token}"})
@@ -68,7 +71,7 @@ async def test_alg_confusion(client, monkeypatch):
 
     monkeypatch.setattr(middleware.jwks_client, "get_key_by_kid", fake_get_key_by_kid)
 
-    token = make_valid_jwt(alg="ES256")  # header says ES256 -> mismatch => alg_confusion
+    token = make_valid_jwt(alg="ml-dsa-44")  # allowed alg, but JWKS alg mismatch => alg_confusion
     r = await client.get("/protected-demo", headers={"Authorization": f"Bearer {token}"})
     assert r.status_code == 401
     assert r.json() == {"error": "invalid_token", "reason": "alg_confusion"}

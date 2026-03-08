@@ -1,0 +1,83 @@
+{
+  "timestamp": "2026-03-08T07:54:58.811427+00:00",
+  "run_id": "d421c0e1",
+  "phases": [
+    {
+      "phase": "p1_health",
+      "ok": true
+    },
+    {
+      "phase": "p2_health",
+      "ok": true
+    },
+    {
+      "phase": "p3_health",
+      "ok": true
+    },
+    {
+      "phase": "p4_health",
+      "ok": true
+    },
+    {
+      "phase": "multi_active_setup",
+      "ok": true,
+      "active_count": 27,
+      "rotated_kids": [
+        "6iuOBxCmLHWGlHgIdwgMfw",
+        "Z0mdkVnPxrGwhoaX6FOtbg",
+        "zGRaz640ZyyFYwsKquVjSg",
+        "WJjJesHUQTFK3dlblTaxlA",
+        "rAJmtAcg0ikK4WIJEEC5tQ",
+        "8zP8nGJE-5UuWp1Ob5gWvw"
+      ]
+    },
+    {
+      "phase": "concurrent_issue",
+      "ok": true,
+      "issued": 100,
+      "distinct_kids": 5
+    },
+    {
+      "phase": "jwks_cache_wait",
+      "ok": true,
+      "wait_seconds": 65
+    },
+    {
+      "phase": "pre_revocation",
+      "ok": true,
+      "p3_valid": 100,
+      "p4_valid": 100
+    },
+    {
+      "phase": "mixed_revoke_apply",
+      "ok": true,
+      "rev_jti": 12,
+      "rev_sub": 8,
+      "rev_kid": "Gd8WYtzddxqgtaV8PBPOaw",
+      "revoke_token_resp": {
+        "revoked": {
+          "kid": "Gd8WYtzddxqgtaV8PBPOaw"
+        },
+        "event_ids": [
+          "67a7ea1d-7a07-4ab5-8331-12754b9aa538"
+        ],
+        "published": true
+      }
+    },
+    {
+      "phase": "post_revoke_consistency",
+      "ok": true,
+      "checked": 100,
+      "mismatches": 0
+    },
+    {
+      "phase": "refresh_subset",
+      "ok": true,
+      "create_ok": 25,
+      "rotate_ok": 25,
+      "total": 25
+    }
+  ],
+  "errors": [],
+  "overall_ok": true
+}

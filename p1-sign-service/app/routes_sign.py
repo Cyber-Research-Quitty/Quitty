@@ -14,6 +14,7 @@ from .keystore import keystore
 from .backend_factory import get_backend
 from .crypto_backend import AlgName
 from .metrics import SIGN_LATENCY_SECONDS, P1_ERRORS_TOTAL
+from .p2_client import post_json, P2ClientError
 
 router = APIRouter(prefix="/sign", tags=["sign"])
 
@@ -25,12 +26,15 @@ def _now_unix() -> int:
 class SignRequest(BaseModel):
     claims: Dict[str, Any] = Field(..., description="JWT claims/payload")
     alg: AlgName = Field(default=settings.default_alg)
+    kid: str | None = Field(default=None, description="Optional active kid override for signing")
 
 
 class SignResponse(BaseModel):
     token: str
     alg: str
     kid: str
+    sub: str | None = None
+    jti: str
     token_size_bytes: int
     sign_time_ms: float
 
@@ -48,7 +52,13 @@ def sign_token(body: SignRequest) -> SignResponse:
         claims["iat"] = _now_unix()
 
     try:
-        kp = keystore.get_active_key(body.alg)
+        if body.kid:
+            kp = keystore.activate_kid(body.alg, body.kid, make_signing=True)
+        else:
+            kp = keystore.get_active_key(body.alg)
+    except ValueError as e:
+        P1_ERRORS_TOTAL.labels(type="invalid_signing_kid").inc()
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         P1_ERRORS_TOTAL.labels(type="keystore_keygen_failed").inc()
         raise HTTPException(status_code=500, detail=f"keygen_failed: {type(e).__name__}: {e}")
@@ -77,10 +87,24 @@ def sign_token(body: SignRequest) -> SignResponse:
 
     token = f"{encoded_header}.{encoded_payload}.{b64url_encode(signature)}"
 
+    # Best-effort sync to P4 so P4 can expose/revoke sub/jti/kid for P1-issued tokens.
+    if settings.p4_token_sync_url:
+        try:
+            post_json(
+                settings.p4_token_sync_url,
+                {"token": token},
+                timeout_seconds=settings.p4_timeout_seconds,
+            )
+        except P2ClientError:
+            # Do not fail token issuance if P4 sync is temporarily unavailable.
+            pass
+
     return SignResponse(
         token=token,
         alg=kp.alg,
         kid=kp.kid,
+        sub=claims.get("sub") if isinstance(claims.get("sub"), str) else None,
+        jti=claims["jti"],
         token_size_bytes=len(token.encode("ascii")),
         sign_time_ms=dt_ms,
     )

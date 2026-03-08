@@ -12,7 +12,11 @@ services:
       KEYSTORE_PATH: data/p1-keystore.json
       # Default wired to local P2 host port for out-of-box export from containerized P1.
       P2_EXPORT_URL: ${P2_EXPORT_URL:-http://host.docker.internal:8200/internal/keys/import}
+      P2_DELETE_URL: ${P2_DELETE_URL:-http://host.docker.internal:8200/internal/keys}
       P2_TIMEOUT_SECONDS: 3.0
+      P4_REVOKE_URL: ${P4_REVOKE_URL:-http://host.docker.internal:8400/revoke}
+      P4_TOKEN_SYNC_URL: ${P4_TOKEN_SYNC_URL:-http://host.docker.internal:8400/v1/tokens/sync}
+      P4_TIMEOUT_SECONDS: 3.0
     volumes:
       # Persist generated signing keys on the host.
       - ./data:/app/data

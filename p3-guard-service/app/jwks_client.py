@@ -64,5 +64,17 @@ class JWKSClient:
 
         return None
 
+    async def refresh_and_get_key_by_kid(self, kid: str) -> Optional[dict]:
+        """
+        Force refresh JWKS cache and then resolve kid.
+        Use this for cache-race cases after key rotation.
+        """
+        self._cache_keys = await self._fetch_jwks_keys()
+        self._cache_expires_at = time.time() + JWKS_CACHE_TTL_SECONDS
+        for key in self._cache_keys:
+            if isinstance(key, dict) and key.get("kid") == kid:
+                return key
+        return None
+
 
 jwks_client = JWKSClient()

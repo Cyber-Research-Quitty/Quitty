@@ -10,7 +10,13 @@ class Settings(BaseSettings):
 
     # P1 -> P2 integration
     p2_export_url: str | None = None
+    p2_delete_url: str | None = None
     p2_timeout_seconds: float = 3.0
+
+    # P1 -> P4 integration
+    p4_revoke_url: str | None = None
+    p4_token_sync_url: str | None = None
+    p4_timeout_seconds: float = 3.0
 
     class Config:
         env_file = ".env"

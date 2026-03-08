@@ -31,3 +31,10 @@ P1_SIGN_BASE_URL = os.getenv("P1_SIGN_BASE_URL", "http://127.0.0.1:8100")
 P1_SIGN_PATH = os.getenv("P1_SIGN_PATH", "/sign")
 P1_SIGN_TIMEOUT_SECONDS = float(os.getenv("P1_SIGN_TIMEOUT_SECONDS", "3"))
 P1_ACCESS_TOKEN_ALG = os.getenv("P1_ACCESS_TOKEN_ALG", "ml-dsa-44")
+
+# If false (default), access tokens do not expire automatically and remain valid
+# until explicitly revoked by jti/sub/kid.
+ENFORCE_ACCESS_TOKEN_EXP = os.getenv("ENFORCE_ACCESS_TOKEN_EXP", "false").strip().lower() in ("1", "true", "yes", "on")
+
+# If false (default), issuer claim is not enforced for P1-issued access tokens.
+ENFORCE_ACCESS_TOKEN_ISS = os.getenv("ENFORCE_ACCESS_TOKEN_ISS", "false").strip().lower() in ("1", "true", "yes", "on")

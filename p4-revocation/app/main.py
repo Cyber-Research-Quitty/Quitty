@@ -12,7 +12,7 @@ from fastapi import FastAPI, HTTPException
 from .config import (
     REDIS_URL, PQC_SIGNING_KEY_ID, JWT_ACCESS_TOKEN_EXPIRE_MINUTES,
     JWT_REFRESH_TOKEN_EXPIRE_DAYS, ACCESS_TOKEN_PROVIDER,
-    P1_ACCESS_TOKEN_ALG, JWT_ISSUER
+    P1_ACCESS_TOKEN_ALG, JWT_ISSUER, ENFORCE_ACCESS_TOKEN_EXP, ENFORCE_ACCESS_TOKEN_ISS
 )
 from .store_sqlite import (
     init_sqlite, insert_event, insert_refresh_token,
@@ -34,6 +34,9 @@ from .models import (
     RevocationStatusResponse,
     RevocationCheckRequest,
     RevocationCheckResponse,
+    SyncP1TokenRequest,
+    SyncP1TokenResponse,
+    P1TokenMetaResponse,
     TokenRequest,
     TokenResponse,
     TokenValidateRequest,
@@ -122,6 +125,21 @@ async def _publish_revocation_event(
     return event_id
 
 
+async def _store_p1_token_meta(*, sub: str, jti: str, kid: str, alg: str | None, iss: str | None) -> None:
+    global rds
+    if not rds:
+        return
+    data = {
+        "sub": sub,
+        "jti": jti,
+        "kid": kid,
+        "alg": alg,
+        "iss": iss,
+        "synced_at": utc_now_iso(),
+    }
+    await rds.set(f"token:meta:{jti}", json.dumps(data))
+
+
 async def issue_access_token(
     subject: str,
     expires_minutes: Optional[int] = None,
@@ -198,16 +216,18 @@ async def validate_access_token_provider_aware(
         reason = verify_result.get("error") or verify_result.get("reason") or "signature_invalid"
         raise HTTPException(status_code=401, detail=f"Invalid token: {reason}")
 
-    exp = claims.get("exp")
-    now_ts = int(datetime.now(timezone.utc).timestamp())
-    if not isinstance(exp, int):
-        raise HTTPException(status_code=401, detail="Invalid token: missing or invalid exp")
-    if exp < now_ts:
-        raise HTTPException(status_code=401, detail="Token has expired")
+    if ENFORCE_ACCESS_TOKEN_EXP:
+        exp = claims.get("exp")
+        now_ts = int(datetime.now(timezone.utc).timestamp())
+        if not isinstance(exp, int):
+            raise HTTPException(status_code=401, detail="Invalid token: missing or invalid exp")
+        if exp < now_ts:
+            raise HTTPException(status_code=401, detail="Token has expired")
 
-    iss = claims.get("iss")
-    if not isinstance(iss, str) or iss != JWT_ISSUER:
-        raise HTTPException(status_code=401, detail="Invalid token issuer")
+    if ENFORCE_ACCESS_TOKEN_ISS:
+        iss = claims.get("iss")
+        if not isinstance(iss, str) or iss != JWT_ISSUER:
+            raise HTTPException(status_code=401, detail="Invalid token issuer")
 
     return claims
 
@@ -248,7 +268,7 @@ async def health():
     return {"ok": True}
 
 
-@app.get("/v1/revocations/{jti}", response_model=RevocationStatusResponse)
+@app.get("/v1/revocations/{jti}", response_model=RevocationStatusResponse, tags=["Revocation"])
 async def get_revocation_status(jti: str):
     """
     P3-compatible revocation lookup endpoint.
@@ -266,7 +286,7 @@ async def get_revocation_status(jti: str):
     return RevocationStatusResponse(jti=jti, revoked=True, revokedAt=revoked_at)
 
 
-@app.post("/v1/revocations/check", response_model=RevocationCheckResponse)
+@app.post("/v1/revocations/check", response_model=RevocationCheckResponse, tags=["Revocation"])
 async def check_revocation_status(req: RevocationCheckRequest):
     """
     Check revocation by any of jti/sub/kid.
@@ -303,13 +323,104 @@ async def check_revocation_status(req: RevocationCheckRequest):
     return RevocationCheckResponse(revoked=False)
 
 
-@app.post("/revoke", response_model=RevokeResponse)
+@app.post("/v1/tokens/sync", response_model=SyncP1TokenResponse, tags=["P1 Token Sync"])
+@app.post("/token/p1/sync", response_model=SyncP1TokenResponse, tags=["Token"])
+async def sync_p1_token(req: SyncP1TokenRequest):
+    """
+    Sync metadata of a P1-issued access token into P4.
+    Extracts and stores sub/jti/kid so P4 docs/users can revoke directly.
+    """
+    global rds
+    if not rds:
+        raise HTTPException(status_code=503, detail="Service not ready")
+
+    verify_result = await p1_signer_client.verify_access_token(req.token)
+    if not bool(verify_result.get("valid")):
+        reason = verify_result.get("error") or verify_result.get("reason") or "signature_invalid"
+        raise HTTPException(status_code=401, detail=f"Token verification failed: {reason}")
+
+    claims = verify_result.get("claims")
+    if not isinstance(claims, dict):
+        raise HTTPException(status_code=400, detail="Verified token missing claims")
+
+    sub = claims.get("sub")
+    jti = claims.get("jti")
+    kid = verify_result.get("kid")
+    alg = verify_result.get("alg")
+    iss = claims.get("iss")
+
+    if not isinstance(sub, str) or not sub:
+        raise HTTPException(status_code=400, detail="Token missing sub")
+    if not isinstance(jti, str) or not jti:
+        raise HTTPException(status_code=400, detail="Token missing jti")
+    if not isinstance(kid, str) or not kid:
+        raise HTTPException(status_code=400, detail="Token missing kid")
+
+    await _store_p1_token_meta(sub=sub, jti=jti, kid=kid, alg=alg if isinstance(alg, str) else None, iss=iss if isinstance(iss, str) else None)
+    return SyncP1TokenResponse(
+        access_token=req.token,
+        synced=True,
+        sub=sub,
+        jti=jti,
+        kid=kid,
+        alg=alg if isinstance(alg, str) else None,
+        iss=iss if isinstance(iss, str) else None,
+    )
+
+
+@app.get("/v1/tokens/{jti}", response_model=P1TokenMetaResponse, tags=["P1 Token Sync"])
+async def get_synced_p1_token(jti: str):
+    """
+    Fetch synced metadata for a P1-issued token by jti.
+    """
+    global rds
+    if not rds:
+        raise HTTPException(status_code=503, detail="Service not ready")
+
+    raw = await rds.get(f"token:meta:{jti}")
+    if not raw:
+        return P1TokenMetaResponse(found=False, jti=jti, revoked=bool(await rds.get(f"revoked:jti:{jti}")))
+
+    try:
+        meta = json.loads(raw)
+    except Exception:
+        raise HTTPException(status_code=500, detail="Corrupt token metadata in cache")
+
+    sub = meta.get("sub")
+    kid = meta.get("kid")
+    if not isinstance(sub, str) or not sub:
+        sub = None
+    if not isinstance(kid, str) or not kid:
+        kid = None
+
+    revoked_reason = None
+    if await rds.get(f"revoked:jti:{jti}"):
+        revoked_reason = "jti"
+    elif sub and await rds.get(f"revoked:sub:{sub}"):
+        revoked_reason = "sub"
+    elif kid and await rds.get(f"revoked:kid:{kid}"):
+        revoked_reason = "kid"
+
+    return P1TokenMetaResponse(
+        found=True,
+        sub=sub,
+        jti=jti,
+        kid=kid,
+        alg=meta.get("alg") if isinstance(meta.get("alg"), str) else None,
+        iss=meta.get("iss") if isinstance(meta.get("iss"), str) else None,
+        synced_at=meta.get("synced_at") if isinstance(meta.get("synced_at"), str) else None,
+        revoked=revoked_reason is not None,
+        revocation_reason=revoked_reason,
+    )
+
+
+@app.post("/revoke", response_model=RevokeResponse, tags=["Revocation"])
 async def revoke(req: RevokeRequest):
     event_id = await _publish_revocation_event(req.type, req.value, req.ttl_seconds)
     return RevokeResponse(event_id=event_id, published=True)
 
 
-@app.post("/revoke/token", response_model=RevokeTokenResponse)
+@app.post("/revoke/token", response_model=RevokeTokenResponse, tags=["Revocation"])
 async def revoke_from_verified_token(req: RevokeTokenRequest):
     """
     Verify token with P1, then revoke by selected identifiers from verified token:
@@ -335,6 +446,23 @@ async def revoke_from_verified_token(req: RevokeTokenRequest):
         "sub": claims.get("sub") if isinstance(claims.get("sub"), str) and claims.get("sub") else None,
         "kid": kid,
     }
+    token_jti = lookup["jti"]
+    token_sub = lookup["sub"]
+    token_kid = lookup["kid"]
+    if not token_jti:
+        raise HTTPException(status_code=400, detail="Token missing jti")
+    if not token_sub:
+        raise HTTPException(status_code=400, detail="Token missing sub")
+    if not token_kid:
+        raise HTTPException(status_code=400, detail="Token missing kid")
+
+    await _store_p1_token_meta(
+        sub=token_sub,
+        jti=token_jti,
+        kid=token_kid,
+        alg=verify_result.get("alg") if isinstance(verify_result.get("alg"), str) else None,
+        iss=claims.get("iss") if isinstance(claims.get("iss"), str) else None,
+    )
 
     if not req.scopes:
         raise HTTPException(status_code=400, detail="At least one scope is required")
@@ -350,10 +478,18 @@ async def revoke_from_verified_token(req: RevokeTokenRequest):
         event_ids.append(event_id)
         revoked[scope] = value
 
-    return RevokeTokenResponse(revoked=revoked, event_ids=event_ids, published=True)
+    return RevokeTokenResponse(
+        access_token=req.token,
+        sub=token_sub,
+        jti=token_jti,
+        kid=token_kid,
+        revoked=revoked,
+        event_ids=event_ids,
+        published=True,
+    )
 
 
-@app.post("/token", response_model=TokenResponse)
+@app.post("/token", response_model=TokenResponse, tags=["Token"], include_in_schema=False)
 async def create_token(req: TokenRequest):
     """
     Generate a new JWT access token.
@@ -373,7 +509,26 @@ async def create_token(req: TokenRequest):
     )
 
     jti = claims.get("jti")
+    sub = claims.get("sub")
     exp = claims.get("exp")
+    header = _decode_unverified_header(token)
+    kid = header.get("kid")
+    alg = header.get("alg")
+
+    if not isinstance(jti, str) or not jti:
+        raise HTTPException(status_code=502, detail="P1 token missing jti")
+    if not isinstance(sub, str) or not sub:
+        raise HTTPException(status_code=502, detail="P1 token missing sub")
+    if not isinstance(kid, str) or not kid:
+        raise HTTPException(status_code=502, detail="P1 token missing kid")
+
+    await _store_p1_token_meta(
+        sub=sub,
+        jti=jti,
+        kid=kid,
+        alg=alg if isinstance(alg, str) else None,
+        iss=claims.get("iss") if isinstance(claims.get("iss"), str) else None,
+    )
     
     # Calculate expires_in (seconds until expiration)
     if exp:
@@ -386,11 +541,13 @@ async def create_token(req: TokenRequest):
         token_type="bearer",
         expires_in=expires_in,
         jti=jti,
+        sub=sub,
+        kid=kid,
         subject=req.subject
     )
 
 
-@app.post("/token/validate", response_model=TokenValidateResponse)
+@app.post("/token/validate", response_model=TokenValidateResponse, tags=["Token"])
 async def validate_token_endpoint(req: TokenValidateRequest):
     """
     Validate a JWT token and check revocation status.
@@ -436,10 +593,10 @@ async def validate_token_endpoint(req: TokenValidateRequest):
             # If validate_token raised a revocation exception, use that message
             error_message = e.detail
             
-            # Check if token is expired by examining exp claim
+            # Check expiry only if expiry enforcement is enabled.
             exp_claim = claims.get("exp")
             is_expired = False
-            if exp_claim:
+            if ENFORCE_ACCESS_TOKEN_EXP and exp_claim:
                 current_time = int(datetime.now(timezone.utc).timestamp())
                 is_expired = exp_claim < current_time
             
