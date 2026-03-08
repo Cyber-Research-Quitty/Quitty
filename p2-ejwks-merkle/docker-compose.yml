@@ -31,6 +31,21 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  client-verify-service:
+    build:
+      context: .
+      dockerfile: client-verify/Dockerfile
+    ports:
+      - "8201:8201"
+    environment:
+      - CLIENT_VERIFY_P2_BASE_URL=http://ejwks-api:8000
+      - CLIENT_VERIFY_KEY_FILE=/data/root_signer_key.json
+    volumes:
+      - ./data:/data:ro
+    depends_on:
+      - ejwks-api
+    restart: unless-stopped
+
 volumes:
   redis-data:
 
