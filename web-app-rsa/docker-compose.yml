@@ -3,11 +3,11 @@ services:
     build: ./auth
     environment:
       JWT_SECRET: dev-secret
-      JWT_ALGORITHM: HS256
+      JWT_ALGORITHM: RS256
       ACCESS_TOKEN_TTL_MINUTES: 60
       AUTH_DB_PATH: /data/auth.db
     ports:
-      - '8005:8005'
+      - '8005:8001'
     volumes:
       - auth_data:/data
 
@@ -24,7 +24,7 @@ services:
     build: ./cart
     environment:
       JWT_SECRET: dev-secret
-      JWT_ALGORITHM: HS256
+      JWT_ALGORITHM: RS256
       DB_SERVICE_URL: http://db:8002
     ports:
       - '8003:8003'

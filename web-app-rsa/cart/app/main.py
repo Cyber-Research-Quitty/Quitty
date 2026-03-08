@@ -8,8 +8,35 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 JWT_SECRET = os.getenv("JWT_SECRET", "dev-secret")
-JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
+JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "RS256")
+JWT_PUBLIC_KEY = os.getenv(
+    "JWT_PUBLIC_KEY",
+    """
+-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwgYXTInrNc90OpHbRnzZ
+J6+X71YutxIhmiU8NByHp4/nvXRgtKT8CA7Uf2/Qfo+hYVsdo9i99El/TcTU2cJn
+lwUV0SO46HLLJK0uPFvNcAfpOM9YqNMcHaPX8/JWWVlnVr3yaNcmpWURKA2F5Slo
+b41N4F0IiYh1uqDwipsM8+mcUsfpzzP4amD7XLl5zIykV+Ut9jec/gKlM7zOSwrz
+gXhJH9qGRwoyPXZxN9GdF0mb7e7hs1Omo5hunzmOPOPM0sfxAVx0zyUMkjvkMN7n
+yU3z5W109aXXQRYNoMFWz/9PruaUUNAmT/KqaXxAxC0/DVeuO1wqgwdIXDCHXNld
+xQIDAQAB
+-----END PUBLIC KEY-----
+""",
+)
 DB_SERVICE_URL = os.getenv("DB_SERVICE_URL", "http://db:8002")
+
+
+def normalize_pem(pem: str) -> str:
+    return pem.replace("\\n", "\n").strip() + "\n"
+
+
+JWT_PUBLIC_KEY = normalize_pem(JWT_PUBLIC_KEY)
+
+
+def get_verification_key() -> str:
+    if JWT_ALGORITHM.upper().startswith("RS"):
+        return JWT_PUBLIC_KEY
+    return JWT_SECRET
 
 app = FastAPI(title="cart-service")
 app.add_middleware(
@@ -33,7 +60,7 @@ async def get_current_user(authorization: Annotated[Optional[str], Header()] = N
 
     token = authorization.split(" ", 1)[1]
     try:
-        return jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        return jwt.decode(token, get_verification_key(), algorithms=[JWT_ALGORITHM])
     except jwt.PyJWTError as exc:
         raise HTTPException(status_code=401, detail="Invalid token") from exc
 

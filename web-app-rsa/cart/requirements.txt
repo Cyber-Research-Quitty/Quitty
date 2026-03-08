@@ -3,3 +3,4 @@ uvicorn==0.34.0
 httpx==0.28.1
 PyJWT==2.10.1
 pydantic==2.10.6
+cryptography==44.0.2
