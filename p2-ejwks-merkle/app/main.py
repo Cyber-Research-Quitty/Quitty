@@ -88,17 +88,17 @@ def _get_dashboard_snapshot() -> Dict[str, Any]:
     return snapshot
 
 
-@app.get("/dashboard", response_class=HTMLResponse)
+@app.get("/dashboard", response_class=HTMLResponse, include_in_schema=False)
 def dashboard():
     return HTMLResponse(render_dashboard_html())
 
 
-@app.get("/dashboard/data")
+@app.get("/dashboard/data", include_in_schema=False)
 def dashboard_data():
     return _get_dashboard_snapshot()
 
 
-@app.get("/present", response_class=HTMLResponse)
+@app.get("/present", response_class=HTMLResponse, include_in_schema=False)
 def present():
     return HTMLResponse(render_present_html())
 

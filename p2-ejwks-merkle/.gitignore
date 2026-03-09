@@ -1,0 +1,26 @@
+# Python cache and bytecode
+__pycache__/
+*.py[cod]
+
+# Local virtual environments
+.venv/
+venv/
+env/
+
+# Local environment files
+.env
+*.env
+
+# Local editor/system files
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Runtime databases
+keys.db
+data/keys.db
+
+# Generated artifacts in results
+
+# Local service logs
+*.log
