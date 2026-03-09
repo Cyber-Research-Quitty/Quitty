@@ -10,7 +10,7 @@ from .log_merkle import LogMerkleTree
 from .merkle import MerkleTree
 from .signer import RootSigner, sign_root_bundle
 from .storage import KeyStore
-from .utils import jwk_thumbprint, public_jwk
+from .utils import b64url_encode, jwk_thumbprint, public_jwk
 
 class EJWKSService:
     def __init__(
@@ -53,6 +53,13 @@ class EJWKSService:
         # Sign JWKS root
         jwks_bundle = sign_root_bundle(self.root_signer, root_b64=jwks_root_b64, epoch=epoch)
         self.redis.set("root:jwks_bundle", json.dumps(jwks_bundle), ex=24 * 3600)
+
+        # Remove stale cache entries for keys that are no longer active.
+        stale_keys: List[bytes | str] = []
+        for pattern in ("key:kid:*", "proof:kid:*", "jkt:kid:*", "kid_by_jkt:*"):
+            stale_keys.extend(list(self.redis.scan_iter(match=pattern)))
+        if stale_keys:
+            self.redis.delete(*stale_keys)
 
         # Cache key+proofs
         pipe = self.redis.pipeline()
@@ -170,3 +177,137 @@ class EJWKSService:
         self._rebuild_log_cache()
         raw = self.redis.get(f"log:proof:{checkpoint_idx}")
         return json.loads(raw) if raw else None
+
+    def _build_tree_snapshot(
+        self,
+        levels_input: List[List[bytes]],
+        leaf_descriptors: List[Dict[str, Any]],
+        root_hash: str,
+    ) -> Dict[str, Any]:
+        leaf_count = len(leaf_descriptors)
+        level_count = len(levels_input)
+
+        levels: List[Dict[str, Any]] = []
+        for level_index in range(level_count - 1, -1, -1):
+            depth_from_root = (level_count - 1) - level_index
+            width = max(1, 2 ** depth_from_root)
+            nodes: List[Dict[str, Any]] = []
+            for node_index, node_hash in enumerate(levels_input[level_index]):
+                span_width = max(1, 2 ** level_index)
+                span_start = node_index * span_width
+                span_end = min(span_start + span_width - 1, leaf_count - 1) if leaf_count else None
+                node_kind = "leaf" if level_index == 0 else ("root" if level_index == level_count - 1 else "branch")
+                node_data: Dict[str, Any] = {
+                    "index": node_index,
+                    "hash": b64url_encode(node_hash),
+                    "kind": node_kind,
+                    "span_start": span_start if leaf_count else None,
+                    "span_end": span_end,
+                }
+                if level_index == 0 and leaf_count:
+                    node_data.update(leaf_descriptors[node_index])
+                nodes.append(node_data)
+
+            levels.append(
+                {
+                    "depth_from_root": depth_from_root,
+                    "level_index": level_index,
+                    "label": "Root" if level_index == level_count - 1 else ("Leaves" if level_index == 0 else f"Level {level_index}"),
+                    "nodes": nodes,
+                    "grid_columns": width,
+                }
+            )
+
+        return {
+            "root_hash": root_hash,
+            "leaf_count": leaf_count,
+            "level_count": level_count,
+            "leaves": leaf_descriptors,
+            "levels": levels,
+        }
+
+    def _build_merkle_tree_snapshot(self, keys: List[Any]) -> Dict[str, Any]:
+        id_to_jwk = {rec.kid: rec.jwk for rec in keys}
+        tree = MerkleTree.build(id_to_jwk)
+        leaf_descriptors = [
+            {
+                "leaf_id": rec.kid,
+                "leaf_label": rec.kid,
+                "leaf_meta": f"JKT {rec.jkt}",
+            }
+            for rec in keys
+        ]
+        return self._build_tree_snapshot(tree.levels, leaf_descriptors, tree.root_b64())
+
+    def _build_log_tree_snapshot(self, checkpoints: List[Any]) -> Dict[str, Any]:
+        entry_hashes = [cp.entry_hash for cp in checkpoints]
+        tree = LogMerkleTree.build_from_entry_hashes(entry_hashes)
+        leaf_descriptors = [
+            {
+                "leaf_id": f"checkpoint-{cp.idx}",
+                "leaf_label": f"Checkpoint #{cp.idx}",
+                "leaf_meta": f"Epoch {cp.epoch}",
+                "checkpoint_idx": cp.idx,
+                "entry_hash": cp.entry_hash,
+                "jwks_root_hash": cp.jwks_root_hash,
+            }
+            for cp in checkpoints
+        ]
+        return self._build_tree_snapshot(tree.levels, leaf_descriptors, tree.root_b64())
+
+    def get_dashboard_snapshot(self, checkpoint_limit: int = 10) -> Dict[str, Any]:
+        all_keys = self.store.list_all(include_inactive=True)
+        active_keys = [rec for rec in all_keys if rec.status == "active"]
+        counts = self.store.count_keys_by_status()
+        all_checkpoints = self.store.list_checkpoints()
+        recent_checkpoints = self.store.list_recent_checkpoints(limit=checkpoint_limit)
+        latest_checkpoint = recent_checkpoints[0] if recent_checkpoints else None
+        jwks_root = self.get_jwks_root_bundle()
+        log_root = self.get_log_bundle()
+
+        return {
+            "generated_at": int(time.time()),
+            "counts": counts,
+            "jwks_root": jwks_root,
+            "log_root": log_root,
+            "merkle_tree": self._build_merkle_tree_snapshot(active_keys),
+            "log_merkle_tree": self._build_log_tree_snapshot(all_checkpoints),
+            "latest_checkpoint": (
+                {
+                    "idx": latest_checkpoint.idx,
+                    "epoch": latest_checkpoint.epoch,
+                    "jwks_root_hash": latest_checkpoint.jwks_root_hash,
+                    "prev_hash": latest_checkpoint.prev_hash,
+                    "entry_hash": latest_checkpoint.entry_hash,
+                    "created_at": latest_checkpoint.created_at,
+                }
+                if latest_checkpoint
+                else None
+            ),
+            "keys": [
+                {
+                    "kid": rec.kid,
+                    "jkt": rec.jkt,
+                    "status": rec.status,
+                    "created_at": rec.created_at,
+                    "activated_at": rec.activated_at,
+                    "deactivated_at": rec.deactivated_at,
+                    "last_updated_at": rec.last_updated_at,
+                    "kty": rec.jwk.get("kty"),
+                    "alg": rec.jwk.get("alg"),
+                    "use": rec.jwk.get("use"),
+                }
+                for rec in all_keys
+            ],
+            "recent_checkpoints": [
+                {
+                    "idx": cp.idx,
+                    "epoch": cp.epoch,
+                    "jwks_root_hash": cp.jwks_root_hash,
+                    "prev_hash": cp.prev_hash,
+                    "entry_hash": cp.entry_hash,
+                    "created_at": cp.created_at,
+                }
+                for cp in recent_checkpoints
+            ],
+        }

@@ -3,10 +3,12 @@ import os
 import logging
 from typing import Any, Dict
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import HTMLResponse
 from dotenv import load_dotenv
 from pydantic import ValidationError
 from redis import Redis
 
+from .dashboard import render_dashboard_html, render_present_html
 from .schemas import JWKIn, ImportKeyOut
 from .storage import KeyStore
 from .signer import load_or_create_root_signer
@@ -73,6 +75,32 @@ def _startup() -> None:
 @app.get("/health")
 def health():
     return {"ok": True}
+
+
+def _get_dashboard_snapshot() -> Dict[str, Any]:
+    snapshot = svc.get_dashboard_snapshot()
+    if not snapshot["jwks_root"]:
+        snapshot["jwks_root"] = svc.rebuild_tree()
+        snapshot = svc.get_dashboard_snapshot()
+    if not snapshot["log_root"]:
+        svc._rebuild_log_cache()
+        snapshot = svc.get_dashboard_snapshot()
+    return snapshot
+
+
+@app.get("/dashboard", response_class=HTMLResponse)
+def dashboard():
+    return HTMLResponse(render_dashboard_html())
+
+
+@app.get("/dashboard/data")
+def dashboard_data():
+    return _get_dashboard_snapshot()
+
+
+@app.get("/present", response_class=HTMLResponse)
+def present():
+    return HTMLResponse(render_present_html())
 
 @app.get("/jwks.json", deprecated=True)
 def legacy_jwks():

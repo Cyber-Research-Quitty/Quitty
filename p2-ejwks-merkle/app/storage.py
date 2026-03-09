@@ -13,6 +13,10 @@ class KeyRecord:
     jkt: str
     jwk: Dict[str, Any]
     created_at: int
+    status: str
+    activated_at: int
+    deactivated_at: Optional[int]
+    last_updated_at: int
 
 @dataclass
 class Checkpoint:
@@ -44,6 +48,22 @@ class KeyStore:
                 )
             """)
             c.execute("CREATE INDEX IF NOT EXISTS idx_keys_jkt ON keys(jkt)")
+            key_columns = {row["name"] for row in c.execute("PRAGMA table_info(keys)").fetchall()}
+            if "status" not in key_columns:
+                c.execute("ALTER TABLE keys ADD COLUMN status TEXT NOT NULL DEFAULT 'active'")
+            if "activated_at" not in key_columns:
+                c.execute("ALTER TABLE keys ADD COLUMN activated_at INTEGER")
+            if "deactivated_at" not in key_columns:
+                c.execute("ALTER TABLE keys ADD COLUMN deactivated_at INTEGER")
+            if "last_updated_at" not in key_columns:
+                c.execute("ALTER TABLE keys ADD COLUMN last_updated_at INTEGER")
+            c.execute("CREATE INDEX IF NOT EXISTS idx_keys_status ON keys(status)")
+            c.execute("""
+                UPDATE keys
+                SET status = COALESCE(NULLIF(status, ''), 'active'),
+                    activated_at = COALESCE(activated_at, created_at),
+                    last_updated_at = COALESCE(last_updated_at, created_at)
+            """)
 
             # Transparency log checkpoints
             c.execute("""
@@ -64,55 +84,101 @@ class KeyStore:
         now = int(time.time())
         with self._conn() as c:
             c.execute("""
-                INSERT INTO keys(kid, jkt, jwk_json, created_at)
-                VALUES(?,?,?,?)
+                INSERT INTO keys(kid, jkt, jwk_json, created_at, status, activated_at, deactivated_at, last_updated_at)
+                VALUES(?,?,?,?,?,?,?,?)
                 ON CONFLICT(kid) DO UPDATE SET
                   jkt=excluded.jkt,
                   jwk_json=excluded.jwk_json,
-                  created_at=excluded.created_at
-            """, (kid, jkt, json.dumps(jwk, separators=(",", ":"), sort_keys=True), now))
+                  status='active',
+                  activated_at=excluded.activated_at,
+                  deactivated_at=NULL,
+                  last_updated_at=excluded.last_updated_at
+            """, (
+                kid,
+                jkt,
+                json.dumps(jwk, separators=(",", ":"), sort_keys=True),
+                now,
+                "active",
+                now,
+                None,
+                now,
+            ))
             c.commit()
 
-    def get_by_kid(self, kid: str) -> Optional[KeyRecord]:
+    def _row_to_key_record(self, row: sqlite3.Row) -> KeyRecord:
+        return KeyRecord(
+            kid=row["kid"],
+            jkt=row["jkt"],
+            jwk=json.loads(row["jwk_json"]),
+            created_at=row["created_at"],
+            status=row["status"],
+            activated_at=row["activated_at"] or row["created_at"],
+            deactivated_at=row["deactivated_at"],
+            last_updated_at=row["last_updated_at"] or row["created_at"],
+        )
+
+    def get_by_kid(self, kid: str, include_inactive: bool = False) -> Optional[KeyRecord]:
         with self._conn() as c:
-            row = c.execute("SELECT * FROM keys WHERE kid=?", (kid,)).fetchone()
+            query = "SELECT * FROM keys WHERE kid=?"
+            params: Tuple[Any, ...] = (kid,)
+            if not include_inactive:
+                query += " AND status='active'"
+            row = c.execute(query, params).fetchone()
             if not row:
                 return None
-            return KeyRecord(
-                kid=row["kid"],
-                jkt=row["jkt"],
-                jwk=json.loads(row["jwk_json"]),
-                created_at=row["created_at"],
-            )
+            return self._row_to_key_record(row)
 
-    def get_by_jkt(self, jkt: str) -> Optional[KeyRecord]:
+    def get_by_jkt(self, jkt: str, include_inactive: bool = False) -> Optional[KeyRecord]:
         with self._conn() as c:
-            row = c.execute("SELECT * FROM keys WHERE jkt=?", (jkt,)).fetchone()
+            query = "SELECT * FROM keys WHERE jkt=?"
+            params: Tuple[Any, ...] = (jkt,)
+            if not include_inactive:
+                query += " AND status='active'"
+            row = c.execute(query, params).fetchone()
             if not row:
                 return None
-            return KeyRecord(
-                kid=row["kid"],
-                jkt=row["jkt"],
-                jwk=json.loads(row["jwk_json"]),
-                created_at=row["created_at"],
-            )
+            return self._row_to_key_record(row)
 
-    def list_all(self) -> List[KeyRecord]:
+    def list_all(self, include_inactive: bool = False) -> List[KeyRecord]:
         with self._conn() as c:
-            rows = c.execute("SELECT * FROM keys ORDER BY kid").fetchall()
-            return [
-                KeyRecord(
-                    kid=r["kid"],
-                    jkt=r["jkt"],
-                    jwk=json.loads(r["jwk_json"]),
-                    created_at=r["created_at"],
-                )
-                for r in rows
-            ]
+            query = "SELECT * FROM keys"
+            if not include_inactive:
+                query += " WHERE status='active'"
+            query += " ORDER BY kid"
+            rows = c.execute(query).fetchall()
+            return [self._row_to_key_record(r) for r in rows]
+
+    def count_keys(self, include_inactive: bool = True) -> int:
+        with self._conn() as c:
+            query = "SELECT COUNT(*) AS count FROM keys"
+            if not include_inactive:
+                query += " WHERE status='active'"
+            row = c.execute(query).fetchone()
+            return int(row["count"]) if row else 0
+
+    def count_keys_by_status(self) -> Dict[str, int]:
+        with self._conn() as c:
+            rows = c.execute("""
+                SELECT status, COUNT(*) AS count
+                FROM keys
+                GROUP BY status
+            """).fetchall()
+            counts = {"active": 0, "inactive": 0}
+            for row in rows:
+                counts[row["status"]] = int(row["count"])
+            counts["total"] = counts["active"] + counts["inactive"]
+            return counts
 
     def delete_by_kid(self, kid: str) -> bool:
+        now = int(time.time())
         with self._conn() as c:
-            cur = c.execute("DELETE FROM keys WHERE kid=?", (kid,))
+            cur = c.execute("""
+                UPDATE keys
+                SET status='inactive',
+                    deactivated_at=?,
+                    last_updated_at=?
+                WHERE kid=? AND status='active'
+            """, (now, now, kid))
             c.commit()
             return int(cur.rowcount) > 0
 
@@ -183,6 +249,25 @@ class KeyStore:
     def list_checkpoints(self) -> List[Checkpoint]:
         with self._conn() as c:
             rows = c.execute("SELECT * FROM checkpoints ORDER BY idx ASC").fetchall()
+            return [
+                Checkpoint(
+                    idx=int(r["idx"]),
+                    epoch=int(r["epoch"]),
+                    jwks_root_hash=r["jwks_root_hash"],
+                    prev_hash=r["prev_hash"],
+                    entry_hash=r["entry_hash"],
+                    created_at=int(r["created_at"]),
+                )
+                for r in rows
+            ]
+
+    def list_recent_checkpoints(self, limit: int = 10) -> List[Checkpoint]:
+        with self._conn() as c:
+            rows = c.execute("""
+                SELECT * FROM checkpoints
+                ORDER BY idx DESC
+                LIMIT ?
+            """, (limit,)).fetchall()
             return [
                 Checkpoint(
                     idx=int(r["idx"]),

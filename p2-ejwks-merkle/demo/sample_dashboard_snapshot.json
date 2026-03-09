@@ -1,0 +1,92 @@
+{
+  "generated_at": 1773014692,
+  "counts": {
+    "active": 4,
+    "inactive": 1,
+    "total": 5
+  },
+  "jwks_root": {
+    "root_hash": "2sSKC47p_sZ0j_JVVqJvwukyYAhuKgtZLqNX4OS8dM0",
+    "epoch": 1773014419,
+    "sig_kid": "root-ml-dsa-44"
+  },
+  "log_root": {
+    "root_hash": "2Zr0i7nlbex7CN44gCAHgimJU8QPsT_ZIhe2Nr7_JvY",
+    "epoch": 1773014419,
+    "sig_kid": "root-ml-dsa-44"
+  },
+  "merkle_tree": {
+    "root_hash": "2sSKC47p_sZ0j_JVVqJvwukyYAhuKgtZLqNX4OS8dM0",
+    "leaf_count": 4,
+    "level_count": 3,
+    "leaves": [
+      {
+        "leaf_id": "-y-TftkeiWt8upZt8-ymYA",
+        "leaf_label": "-y-TftkeiWt8upZt8-ymYA",
+        "leaf_meta": "JKT 9GOEM9vVr9OUWT_iGJpZggyT-GxABkF0_FviYQiaNgY"
+      },
+      {
+        "leaf_id": "mQaY8h2kY6uUmRN1uAf8eg",
+        "leaf_label": "mQaY8h2kY6uUmRN1uAf8eg",
+        "leaf_meta": "JKT d7jG8dC5N2uyDWStM5fRUS0_XsQos3P3Naloe3syfuk"
+      },
+      {
+        "leaf_id": "npSwc3aEpDdmP5rkEKk8ug",
+        "leaf_label": "npSwc3aEpDdmP5rkEKk8ug",
+        "leaf_meta": "JKT EYx3VgefiYx3kIR6azl6eOua_2n43o_XCo-9f0yv0ew"
+      },
+      {
+        "leaf_id": "zr8UPGleeft3spaIeM6xYg",
+        "leaf_label": "zr8UPGleeft3spaIeM6xYg",
+        "leaf_meta": "JKT 0gZWI3cswSI32XjXbbru5f-bpMgctdnHbh9s243sXTo"
+      }
+    ]
+  },
+  "log_merkle_tree": {
+    "root_hash": "2Zr0i7nlbex7CN44gCAHgimJU8QPsT_ZIhe2Nr7_JvY",
+    "leaf_count": 9,
+    "level_count": 5,
+    "leaves": [
+      {
+        "leaf_id": "checkpoint-1",
+        "leaf_label": "Checkpoint #1",
+        "leaf_meta": "Epoch 1773012893",
+        "checkpoint_idx": 1,
+        "entry_hash": "eUqApx_GdbRJVOONkwaYeXNoUjLnj0CBJFriOEw9UmU",
+        "jwks_root_hash": "bjQLnP-zepicpUTmu3gKLHiQHT-zNzh2hRGjBhevoB0"
+      },
+      {
+        "leaf_id": "checkpoint-2",
+        "leaf_label": "Checkpoint #2",
+        "leaf_meta": "Epoch 1773012905",
+        "checkpoint_idx": 2,
+        "entry_hash": "vgknLEasKz1t2UxwPGlt0wE1ZumDziZDAv2Hq1AUm0s",
+        "jwks_root_hash": "8zdrYWR_3wlg0CEwM06cLao56aSHVaWWBF49OAgDqvQ"
+      },
+      {
+        "leaf_id": "checkpoint-3",
+        "leaf_label": "Checkpoint #3",
+        "leaf_meta": "Epoch 1773012917",
+        "checkpoint_idx": 3,
+        "entry_hash": "jbSj5c9oy27WwFeOS6Qwg1WekeDUNDBTKbu9BN6X_NQ",
+        "jwks_root_hash": "nahZ0WkhDlgNcYZT0ht1XgwRXfLtmTma2LUgwMrsXXE"
+      },
+      {
+        "leaf_id": "checkpoint-4",
+        "leaf_label": "Checkpoint #4",
+        "leaf_meta": "Epoch 1773012918",
+        "checkpoint_idx": 4,
+        "entry_hash": "relsbWWvhdz-8r_zrvFq6Kfp_nOSqDR4DdSluEdZ1d4",
+        "jwks_root_hash": "u9m3SmbqKVJkecIwJPNZl--UgQc3TNW-vzZj5SZLJxk"
+      }
+    ]
+  },
+  "latest_checkpoint": {
+    "idx": 9,
+    "epoch": 1773014419,
+    "jwks_root_hash": "2sSKC47p_sZ0j_JVVqJvwukyYAhuKgtZLqNX4OS8dM0",
+    "prev_hash": "fpJho3GTQryY-o1zWxbpgiiUbG_0OPj_gC5xE1LPZFU",
+    "entry_hash": "ssxquizklVnBiHgB2a_KIarXP9DiFmY1wP8uJ9gFWZA",
+    "created_at": 1773014419
+  }
+}

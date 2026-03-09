@@ -74,6 +74,15 @@ curl http://localhost:8200/log/latest | jq
 curl http://localhost:8200/log/checkpoint/1 | jq
 ```
 
+### 6. Open the Dashboard
+```bash
+# Browser view
+http://localhost:8200/dashboard
+
+# Raw dashboard JSON
+curl http://localhost:8200/dashboard/data | jq
+```
+
 ---
 
 ## �� Testing the Fixes
@@ -116,10 +125,13 @@ docker compose logs ejwks-api | grep checkpoint
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/health` | GET | Health check |
+| `/dashboard` | GET | Live HTML dashboard |
+| `/dashboard/data` | GET | Dashboard snapshot as JSON |
 | `/jwks.json` | GET | Legacy JWKS format |
 | `/jwks/root` | GET | Signed JWKS root bundle |
 | `/jwks/proof/{kid}` | GET | Key + Merkle proof |
 | `/internal/keys/import` | POST | Import new key (admin) |
+| `/internal/keys/{kid}` | DELETE | Mark key inactive and rebuild tree |
 | `/log/root` | GET | Transparency log root |
 | `/log/latest` | GET | Latest checkpoint + proof |
 | `/log/checkpoint/{idx}` | GET | Specific checkpoint + proof |
@@ -149,7 +161,7 @@ sqlite3 data/keys.db "SELECT COUNT(*) FROM keys;"
 sqlite3 data/keys.db "SELECT COUNT(*) FROM checkpoints;"
 
 # View all keys
-sqlite3 data/keys.db "SELECT kid, kty FROM keys;"
+sqlite3 data/keys.db "SELECT kid, status, activated_at, deactivated_at FROM keys;"
 ```
 
 ### Check Redis Cache

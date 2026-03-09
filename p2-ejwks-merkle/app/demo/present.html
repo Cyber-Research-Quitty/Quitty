@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>P2 Presentation View</title>
+  <style>
+__PAGE_CSS__
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero panel">
+      <div class="hero-copy">
+        <div class="eyebrow">P2 Presentation View</div>
+        <h1>Why plain public-key retrieval is not enough, and what P2 adds.</h1>
+        <p class="lede">
+          This page is for your presentation. It shows the gap in a normal public-key endpoint and
+          places the actual P2 components next to that gap so the audience can see the improvement clearly.
+        </p>
+        <div class="hero-links">
+          <a href="/dashboard">Open full operations dashboard</a>
+          <a href="/jwks.json">Legacy JWKS</a>
+          <a href="/jwks/root">Current signed root</a>
+          <a href="/log/latest">Latest checkpoint proof</a>
+        </div>
+      </div>
+      <div class="hero-card">
+        <div class="card-label">Live P2 Snapshot</div>
+        <div class="hero-stat">
+          <span class="hero-stat-value" id="hero-active">-</span>
+          <span class="hero-stat-label">Active keys in the current Merkle tree</span>
+        </div>
+        <div class="hero-root-label">Latest JWKS Root</div>
+        <div class="hero-root-value" id="hero-root">Loading...</div>
+        <div class="hero-meta" id="hero-meta">Waiting for live data...</div>
+      </div>
+    </section>
+
+    <section class="compare-grid">
+      <section class="panel compare compare-gap">
+        <div class="panel-head">
+          <h2>Without P2</h2>
+          <div class="muted">Plain public-key retrieval</div>
+        </div>
+        <table class="compare-table">
+          <tbody>
+            <tr>
+              <th>What a client gets</th>
+              <td>A public key list from <code>/jwks.json</code></td>
+            </tr>
+            <tr>
+              <th>Retrieval pattern</th>
+              <td>The client normally downloads the whole JWKS document, then chooses a key locally using <code>kid</code>.</td>
+            </tr>
+            <tr>
+              <th>Main trust model</th>
+              <td>Trust the endpoint directly</td>
+            </tr>
+            <tr>
+              <th>Proof a key is included</th>
+              <td class="negative">No inclusion proof</td>
+            </tr>
+            <tr>
+              <th>Proof the key set is official</th>
+              <td class="negative">No signed Merkle root</td>
+            </tr>
+            <tr>
+              <th>History of changes</th>
+              <td class="negative">No append-only transparency log</td>
+            </tr>
+            <tr>
+              <th>What can go wrong</th>
+              <td>The server can change keys and the client has no cryptographic evidence of what changed.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="panel compare compare-solution">
+        <div class="panel-head">
+          <h2>With P2</h2>
+          <div class="muted">Merkle-enhanced E-JWKS</div>
+        </div>
+        <table class="compare-table">
+          <tbody>
+            <tr>
+              <th>What a client gets</th>
+              <td>Keys, signed roots, inclusion proofs, and transparency checkpoints</td>
+            </tr>
+            <tr>
+              <th>Retrieval pattern</th>
+              <td>P2 can return a specific key by <code>kid</code> and also provide its Merkle proof through <code>/jwks/proof/{kid}</code>.</td>
+            </tr>
+            <tr>
+              <th>Main trust model</th>
+              <td>Verify cryptographic proofs, not just the endpoint</td>
+            </tr>
+            <tr>
+              <th>Proof a key is included</th>
+              <td class="positive">Merkle proof from <code>/jwks/proof/{kid}</code></td>
+            </tr>
+            <tr>
+              <th>Proof the key set is official</th>
+              <td class="positive">Signed root bundle from <code>/jwks/root</code></td>
+            </tr>
+            <tr>
+              <th>History of changes</th>
+              <td class="positive">Log checkpoints from <code>/log/latest</code> and <code>/log/checkpoint/{idx}</code></td>
+            </tr>
+            <tr>
+              <th>What improves</th>
+              <td>Clients can independently verify current membership and published history.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Talk Track</h2>
+        <div class="muted">Short script for your P2 segment</div>
+      </div>
+      <div class="talk-grid">
+        <article class="talk-card">
+          <div class="talk-step">1. Problem</div>
+          <p>A normal JWKS endpoint returns keys, but the client still has to trust the server blindly.</p>
+        </article>
+        <article class="talk-card">
+          <div class="talk-step">2. P2 Fix</div>
+          <p>P2 builds a Merkle tree from active public keys, signs the root, and can return one key by <code>kid</code> together with its proof.</p>
+        </article>
+        <article class="talk-card">
+          <div class="talk-step">3. History</div>
+          <p>P2 also keeps a second Merkle tree for checkpoints so key-set changes are transparent over time.</p>
+        </article>
+        <article class="talk-card">
+          <div class="talk-step">4. Outcome</div>
+          <p>So P2 is not just hosting keys. It is publishing verifiable key state and verifiable publication history.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="component-grid">
+      <article class="panel component">
+        <div class="component-kicker">Actual P2 Component</div>
+        <h3>Key Inventory</h3>
+        <p>Tracks which public keys exist, which are active, and which became inactive.</p>
+        <div class="component-metric" id="component-keys">Loading...</div>
+      </article>
+
+      <article class="panel component">
+        <div class="component-kicker">Actual P2 Component</div>
+        <h3>Key Merkle Tree</h3>
+        <p>Built from the active public keys only. This produces the current JWKS root.</p>
+        <div class="component-metric" id="component-tree">Loading...</div>
+      </article>
+
+      <article class="panel component">
+        <div class="component-kicker">Actual P2 Component</div>
+        <h3>Transparency Log Tree</h3>
+        <p>Built from published checkpoints so historical roots become auditable.</p>
+        <div class="component-metric" id="component-log-tree">Loading...</div>
+      </article>
+
+      <article class="panel component">
+        <div class="component-kicker">Actual P2 Component</div>
+        <h3>Proof Endpoints</h3>
+        <p>Expose key inclusion and checkpoint inclusion proofs for downstream verification.</p>
+        <div class="component-metric" id="component-proof">Loading...</div>
+      </article>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Live P2 Evidence</h2>
+        <div class="muted">Current values pulled from <code>/dashboard/data</code></div>
+      </div>
+      <div class="evidence-grid">
+        <div class="evidence-card">
+          <div class="evidence-label">Active vs Inactive</div>
+          <div class="evidence-value" id="evidence-status">-</div>
+        </div>
+        <div class="evidence-card">
+          <div class="evidence-label">Latest Checkpoint</div>
+          <div class="evidence-value" id="evidence-checkpoint">-</div>
+        </div>
+        <div class="evidence-card">
+          <div class="evidence-label">Log Root</div>
+          <div class="evidence-value mono" id="evidence-log-root">-</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+__PAGE_JS__
+  </script>
+</body>
+</html>

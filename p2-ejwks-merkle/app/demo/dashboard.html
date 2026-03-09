@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>P2 Merkle Dashboard</title>
+  <style>
+__PAGE_CSS__
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <div class="hero-panel">
+        <h1 class="title">P2 Merkle<br>Operations Board</h1>
+        <p class="subtitle">
+          Live view of the current E-JWKS key set, active versus inactive lifecycle state,
+          latest signed roots, and recent transparency checkpoints.
+        </p>
+        <div class="meta">
+          <div class="chip">Endpoint: <code>/dashboard/data</code></div>
+          <div class="chip">Refresh: every 5s</div>
+          <div class="chip" id="last-refresh">Waiting for data...</div>
+        </div>
+      </div>
+      <div class="hero-art hero-panel">
+        <div class="root-box">
+          <div>
+            <div class="root-label">Latest JWKS Merkle Root</div>
+            <div class="root-value" id="hero-root">Loading...</div>
+          </div>
+          <div class="root-label" id="hero-root-meta">No root loaded yet</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="stats">
+      <div class="panel stat">
+        <div class="stat-label">Total Keys</div>
+        <div class="stat-value" id="stat-total">-</div>
+      </div>
+      <div class="panel stat">
+        <div class="stat-label">Active Keys</div>
+        <div class="stat-value" id="stat-active">-</div>
+      </div>
+      <div class="panel stat">
+        <div class="stat-label">Inactive Keys</div>
+        <div class="stat-value" id="stat-inactive">-</div>
+      </div>
+      <div class="panel stat">
+        <div class="stat-label">Latest Checkpoint</div>
+        <div class="stat-value" id="stat-checkpoint">-</div>
+      </div>
+      <div class="panel stat">
+        <div class="stat-label">Root Epoch</div>
+        <div class="stat-value" id="stat-epoch">-</div>
+      </div>
+    </section>
+
+    <section class="tree-grid tree-panel">
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Live Key Merkle Tree</h2>
+          <div class="muted" id="tree-summary">Loading tree...</div>
+        </div>
+        <div class="muted tree-note">Leaves are active public keys in sorted `kid` order. Click a leaf to inspect its proof.</div>
+        <div class="tree-wrap" id="merkle-tree">
+          <div class="empty">Loading Merkle tree...</div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Transparency Log Tree</h2>
+          <div class="muted" id="log-tree-summary">Loading log tree...</div>
+        </div>
+        <div class="muted tree-note">Leaves are checkpoint entries, proving historical JWKS roots were published. Click a leaf to inspect inclusion proof.</div>
+        <div class="tree-wrap" id="log-merkle-tree">
+          <div class="empty">Loading log Merkle tree...</div>
+        </div>
+      </section>
+    </section>
+
+    <section class="proof-grid">
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Key Proof Inspector</h2>
+          <div class="muted" id="key-proof-summary">No key selected</div>
+        </div>
+        <div id="key-proof-body" class="empty">Click a key leaf in the key Merkle tree to load its inclusion proof.</div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Checkpoint Proof Inspector</h2>
+          <div class="muted" id="log-proof-summary">No checkpoint selected</div>
+        </div>
+        <div id="log-proof-body" class="empty">Click a checkpoint leaf in the transparency log tree to load its inclusion proof.</div>
+      </section>
+    </section>
+
+    <section class="grid">
+      <div class="stack">
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Key Inventory</h2>
+            <div class="muted" id="key-summary">0 active / 0 inactive</div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>KID</th>
+                  <th>Status</th>
+                  <th>KTY</th>
+                  <th>ALG</th>
+                  <th>Activated</th>
+                  <th>Deactivated</th>
+                  <th>JKT</th>
+                </tr>
+              </thead>
+              <tbody id="keys-body">
+                <tr><td colspan="7" class="empty">Loading keys...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Recent Checkpoints</h2>
+            <div class="muted">Newest first</div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Idx</th>
+                  <th>Epoch</th>
+                  <th>Created</th>
+                  <th>JWKS Root Hash</th>
+                </tr>
+              </thead>
+              <tbody id="checkpoints-body">
+                <tr><td colspan="4" class="empty">Loading checkpoints...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <aside class="stack">
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Latest Root Details</h2>
+            <div class="muted">Signed root bundle</div>
+          </div>
+          <div class="detail-list">
+            <div class="detail">
+              <div class="detail-label">JWKS Root Hash</div>
+              <div class="detail-value" id="detail-jwks-root">-</div>
+            </div>
+            <div class="detail">
+              <div class="detail-label">JWKS Signature Key</div>
+              <div class="detail-value" id="detail-jwks-signer">-</div>
+            </div>
+            <div class="detail">
+              <div class="detail-label">Log Root Hash</div>
+              <div class="detail-value" id="detail-log-root">-</div>
+            </div>
+            <div class="detail">
+              <div class="detail-label">Latest Checkpoint Entry Hash</div>
+              <div class="detail-value" id="detail-checkpoint-entry">-</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Status Legend</h2>
+            <div class="muted">Lifecycle meaning</div>
+          </div>
+          <div class="detail-list">
+            <div class="detail">
+              <div class="detail-label">Active</div>
+              <div class="detail-value">Key is currently present in the Merkle tree and should resolve through the proof endpoints.</div>
+            </div>
+            <div class="detail">
+              <div class="detail-label">Inactive</div>
+              <div class="detail-value">Key record is retained for observability, but it is no longer part of the live Merkle tree.</div>
+            </div>
+          </div>
+        </section>
+      </aside>
+    </section>
+  </main>
+
+  <script>
+__PAGE_JS__
+  </script>
+</body>
+</html>
