@@ -24,10 +24,11 @@ POST body (all fields optional):
 ```json
 {
   "base_url": "http://127.0.0.1:8200",
-  "pinned_pub": "<base64url root public key>",
   "key_file": "./root_signer_key.json"
 }
 ```
+
+Only send `pinned_pub` when you have the real base64url root public key. Placeholder values such as Swagger's default `"string"` are ignored so the service can fall back to `key_file`.
 
 ## Pinned key resolution order
 

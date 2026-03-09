@@ -8,7 +8,7 @@ from typing import Any
 
 import httpx
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 CURRENT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = CURRENT_DIR.parent
@@ -23,6 +23,12 @@ from app.signer import verify_root_bundle_pinned
 PINNED_ROOT_PUB_B64 = "PASTE_THE_ROOT_PUBLIC_KEY_HERE"
 DEFAULT_P2_BASE_URL = "http://127.0.0.1:8200"
 DEFAULT_KEY_FILE = "./root_signer_key.json"
+IGNORED_PINNED_PUB_VALUES = {
+    "",
+    "string",
+    "<base64url root public key>",
+    "PASTE_THE_ROOT_PUBLIC_KEY_HERE",
+}
 
 app = FastAPI(
     title="Client Verify Service",
@@ -32,6 +38,15 @@ app = FastAPI(
 
 
 class VerifyRequest(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "base_url": "http://ejwks-api:8000",
+                "key_file": "/data/root_signer_key.json",
+            }
+        }
+    )
+
     base_url: str = Field(default="http://ejwks-api:8000", description="P2 base URL")
     pinned_pub: str | None = Field(default=None, description="Pinned root public key (base64url)")
     key_file: str = Field(default="/data/root_signer_key.json", description="Path to root signer key JSON file")
@@ -64,22 +79,30 @@ def load_pinned_key_from_file(key_path: str) -> str:
         return ""
 
 
-def resolve_pinned_pub(override_pinned_pub: str | None, key_file: str | None) -> str:
-    if override_pinned_pub:
-        return override_pinned_pub
+def normalize_pinned_pub(value: str | None) -> str:
+    normalized = (value or "").strip()
+    if normalized in IGNORED_PINNED_PUB_VALUES:
+        return ""
+    return normalized
 
-    env_pinned = os.getenv("CLIENT_VERIFY_PINNED_PUB", "").strip()
+
+def resolve_pinned_pub(override_pinned_pub: str | None, key_file: str | None) -> str:
+    override = normalize_pinned_pub(override_pinned_pub)
+    if override:
+        return override
+
+    env_pinned = normalize_pinned_pub(os.getenv("CLIENT_VERIFY_PINNED_PUB"))
     if env_pinned:
         return env_pinned
 
     env_key_file = os.getenv("CLIENT_VERIFY_KEY_FILE", DEFAULT_KEY_FILE)
     key_path = key_file or env_key_file
 
-    key_from_file = load_pinned_key_from_file(key_path)
+    key_from_file = normalize_pinned_pub(load_pinned_key_from_file(key_path))
     if key_from_file:
         return key_from_file
 
-    return PINNED_ROOT_PUB_B64
+    return normalize_pinned_pub(PINNED_ROOT_PUB_B64)
 
 
 def verify_kid(
