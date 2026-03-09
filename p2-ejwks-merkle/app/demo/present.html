@@ -142,6 +142,55 @@ __PAGE_CSS__
       </div>
     </section>
 
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Bloom Filter Hint</h2>
+        <div class="muted">How to explain the pre-check</div>
+      </div>
+      <div class="evidence-grid">
+        <div class="evidence-card">
+          <div class="evidence-label">Definitely Not Present</div>
+          <div class="evidence-value" id="bloom-miss-hint">-</div>
+        </div>
+        <div class="evidence-card">
+          <div class="evidence-label">Maybe Present</div>
+          <div class="evidence-value" id="bloom-hit-hint">-</div>
+        </div>
+        <div class="evidence-card">
+          <div class="evidence-label">Indexed Items</div>
+          <div class="evidence-value" id="bloom-indexed-items">-</div>
+        </div>
+      </div>
+      <div class="evidence-grid">
+        <div class="evidence-card">
+          <div class="evidence-label">Kid Queries</div>
+          <div class="evidence-value" id="bloom-kid-queries">-</div>
+        </div>
+        <div class="evidence-card">
+          <div class="evidence-label">Definite Misses</div>
+          <div class="evidence-value" id="bloom-definite-misses">-</div>
+        </div>
+        <div class="evidence-card">
+          <div class="evidence-label">Maybe Present Hits</div>
+          <div class="evidence-value" id="bloom-maybe-present">-</div>
+        </div>
+      </div>
+      <div class="evidence-grid">
+        <div class="evidence-card">
+          <div class="evidence-label">Allowed Requests</div>
+          <div class="evidence-value" id="bloom-allowed-requests">-</div>
+        </div>
+        <div class="evidence-card">
+          <div class="evidence-label">Rejected Requests</div>
+          <div class="evidence-value" id="bloom-rejected-requests">-</div>
+        </div>
+        <div class="evidence-card">
+          <div class="evidence-label">Allow / Reject Rate</div>
+          <div class="evidence-value" id="bloom-request-rates">-</div>
+        </div>
+      </div>
+    </section>
+
     <section class="component-grid">
       <article class="panel component">
         <div class="component-kicker">Actual P2 Component</div>
@@ -169,6 +218,13 @@ __PAGE_CSS__
         <h3>Proof Endpoints</h3>
         <p>Expose key inclusion and checkpoint inclusion proofs for downstream verification.</p>
         <div class="component-metric" id="component-proof">Loading...</div>
+      </article>
+
+      <article class="panel component">
+        <div class="component-kicker">Actual P2 Component</div>
+        <h3>Bloom Pre-Check</h3>
+        <p>Rejects definite misses quickly and lets only possible matches continue to full lookup and proof resolution.</p>
+        <div class="component-metric" id="component-bloom">Loading...</div>
       </article>
     </section>
 

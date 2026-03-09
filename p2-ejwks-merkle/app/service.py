@@ -31,6 +31,22 @@ class EJWKSService:
         self._bloom_hashes = bloom_hashes
         self.bloom_enabled = bloom_enabled
         self.bloom = BloomFilter(m_bits=bloom_bits, k_hashes=bloom_hashes)
+        self._bloom_metrics_key = "metrics:bloom"
+
+    def _increment_bloom_metric(self, name: str) -> None:
+        self.redis.hincrby(self._bloom_metrics_key, name, 1)
+
+    def _get_bloom_metrics(self) -> Dict[str, int]:
+        raw_metrics = self.redis.hgetall(self._bloom_metrics_key)
+        metrics: Dict[str, int] = {}
+        for raw_key, raw_value in raw_metrics.items():
+            key = raw_key.decode("utf-8") if isinstance(raw_key, (bytes, bytearray)) else str(raw_key)
+            value_text = raw_value.decode("utf-8") if isinstance(raw_value, (bytes, bytearray)) else str(raw_value)
+            try:
+                metrics[key] = int(value_text)
+            except ValueError:
+                continue
+        return metrics
 
     # ---------------- JWKS Merkle ----------------
     def rebuild_tree(self) -> Dict[str, Any]:
@@ -49,6 +65,7 @@ class EJWKSService:
         
         # Atomically swap bloom filter
         self.bloom = new_bloom
+        self._increment_bloom_metric("rebuilds_total")
 
         # Sign JWKS root
         jwks_bundle = sign_root_bundle(self.root_signer, root_b64=jwks_root_b64, epoch=epoch)
@@ -56,7 +73,7 @@ class EJWKSService:
 
         # Remove stale cache entries for keys that are no longer active.
         stale_keys: List[bytes | str] = []
-        for pattern in ("key:kid:*", "proof:kid:*", "jkt:kid:*", "kid_by_jkt:*"):
+        for pattern in ("key:kid:*", "proof:kid:*", "jkt:kid:*", "kid_by_jkt:*", "neg:kid:*", "neg:jkt:*"):
             stale_keys.extend(list(self.redis.scan_iter(match=pattern)))
         if stale_keys:
             self.redis.delete(*stale_keys)
@@ -120,11 +137,15 @@ class EJWKSService:
 
     # ---------------- Key+Proof ----------------
     def get_key_and_proof_by_kid(self, kid: str) -> Optional[Tuple[Dict[str, Any], List[Dict[str, str]], str]]:
+        self._increment_bloom_metric("kid_queries_total")
         if self.bloom_enabled:
             if kid not in self.bloom:
+                self._increment_bloom_metric("kid_definite_miss_total")
                 self.redis.set(f"neg:kid:{kid}", "1", ex=60)
                 return None
+            self._increment_bloom_metric("kid_maybe_present_total")
             if self.redis.get(f"neg:kid:{kid}"):
+                self._increment_bloom_metric("kid_negative_cache_hits_total")
                 return None
 
         raw_key = self.redis.get(f"key:kid:{kid}")
@@ -132,39 +153,50 @@ class EJWKSService:
         raw_jkt = self.redis.get(f"jkt:kid:{kid}")
         
         if raw_key and raw_proof and raw_jkt:
+            self._increment_bloom_metric("kid_cache_hits_total")
             jkt = raw_jkt.decode("utf-8") if isinstance(raw_jkt, bytes) else raw_jkt
             return json.loads(raw_key), json.loads(raw_proof), jkt
 
+        self._increment_bloom_metric("kid_rebuild_lookups_total")
         self.rebuild_tree()
         raw_key = self.redis.get(f"key:kid:{kid}")
         raw_proof = self.redis.get(f"proof:kid:{kid}")
         raw_jkt = self.redis.get(f"jkt:kid:{kid}")
         
         if raw_key and raw_proof and raw_jkt:
+            self._increment_bloom_metric("kid_hits_after_rebuild_total")
             jkt = raw_jkt.decode("utf-8") if isinstance(raw_jkt, bytes) else raw_jkt
             return json.loads(raw_key), json.loads(raw_proof), jkt
 
         if self.bloom_enabled:
+            self._increment_bloom_metric("kid_confirmed_missing_total")
             self.redis.set(f"neg:kid:{kid}", "1", ex=60)
         return None
 
     def get_key_and_proof_by_jkt(self, jkt: str) -> Optional[Tuple[Dict[str, Any], List[Dict[str, str]], str]]:
+        self._increment_bloom_metric("jkt_queries_total")
         if self.bloom_enabled:
             if jkt not in self.bloom:
+                self._increment_bloom_metric("jkt_definite_miss_total")
                 self.redis.set(f"neg:jkt:{jkt}", "1", ex=60)
                 return None
+            self._increment_bloom_metric("jkt_maybe_present_total")
             if self.redis.get(f"neg:jkt:{jkt}"):
+                self._increment_bloom_metric("jkt_negative_cache_hits_total")
                 return None
 
         kid = self.redis.get(f"kid_by_jkt:{jkt}")
         if not kid:
+            self._increment_bloom_metric("jkt_rebuild_lookups_total")
             self.rebuild_tree()
             kid = self.redis.get(f"kid_by_jkt:{jkt}")
         if not kid:
             if self.bloom_enabled:
+                self._increment_bloom_metric("jkt_confirmed_missing_total")
                 self.redis.set(f"neg:jkt:{jkt}", "1", ex=60)
             return None
 
+        self._increment_bloom_metric("jkt_cache_hits_total")
         if isinstance(kid, (bytes, bytearray)):
             kid = kid.decode("utf-8")
         return self.get_key_and_proof_by_kid(kid)
@@ -255,6 +287,58 @@ class EJWKSService:
         ]
         return self._build_tree_snapshot(tree.levels, leaf_descriptors, tree.root_b64())
 
+    def _build_bloom_snapshot(self, active_keys: List[Any]) -> Dict[str, Any]:
+        key_count = len(active_keys)
+        metrics = self._get_bloom_metrics()
+
+        kid_allowed_total = metrics.get("kid_cache_hits_total", 0) + metrics.get("kid_hits_after_rebuild_total", 0)
+        kid_rejected_total = (
+            metrics.get("kid_definite_miss_total", 0)
+            + metrics.get("kid_negative_cache_hits_total", 0)
+            + metrics.get("kid_confirmed_missing_total", 0)
+        )
+        jkt_allowed_total = metrics.get("jkt_cache_hits_total", 0)
+        jkt_rejected_total = (
+            metrics.get("jkt_definite_miss_total", 0)
+            + metrics.get("jkt_negative_cache_hits_total", 0)
+            + metrics.get("jkt_confirmed_missing_total", 0)
+        )
+
+        return {
+            "enabled": self.bloom_enabled,
+            "m_bits": self._bloom_bits,
+            "k_hashes": self._bloom_hashes,
+            "indexed_kids": key_count,
+            "indexed_jkts": key_count,
+            "indexed_items": key_count * 2,
+            "miss_semantics": "If the Bloom filter says no, the key is definitely not in the current active set.",
+            "hit_semantics": "If the Bloom filter says maybe, P2 continues to Redis and proof lookup because false positives are possible.",
+            "metrics": metrics,
+            "kid_request_summary": {
+                "total_queries": metrics.get("kid_queries_total", 0),
+                "allowed_total": kid_allowed_total,
+                "rejected_total": kid_rejected_total,
+                "allow_rate": (kid_allowed_total / metrics["kid_queries_total"]) if metrics.get("kid_queries_total") else 0.0,
+                "reject_rate": (kid_rejected_total / metrics["kid_queries_total"]) if metrics.get("kid_queries_total") else 0.0,
+                "allowed_breakdown": {
+                    "cache_hits": metrics.get("kid_cache_hits_total", 0),
+                    "hits_after_rebuild": metrics.get("kid_hits_after_rebuild_total", 0),
+                },
+                "rejected_breakdown": {
+                    "definite_miss": metrics.get("kid_definite_miss_total", 0),
+                    "negative_cache_hits": metrics.get("kid_negative_cache_hits_total", 0),
+                    "confirmed_missing_after_lookup": metrics.get("kid_confirmed_missing_total", 0),
+                },
+            },
+            "jkt_request_summary": {
+                "total_queries": metrics.get("jkt_queries_total", 0),
+                "allowed_total": jkt_allowed_total,
+                "rejected_total": jkt_rejected_total,
+                "allow_rate": (jkt_allowed_total / metrics["jkt_queries_total"]) if metrics.get("jkt_queries_total") else 0.0,
+                "reject_rate": (jkt_rejected_total / metrics["jkt_queries_total"]) if metrics.get("jkt_queries_total") else 0.0,
+            },
+        }
+
     def get_dashboard_snapshot(self, checkpoint_limit: int = 10) -> Dict[str, Any]:
         all_keys = self.store.list_all(include_inactive=True)
         active_keys = [rec for rec in all_keys if rec.status == "active"]
@@ -270,6 +354,7 @@ class EJWKSService:
             "counts": counts,
             "jwks_root": jwks_root,
             "log_root": log_root,
+            "bloom_filter": self._build_bloom_snapshot(active_keys),
             "merkle_tree": self._build_merkle_tree_snapshot(active_keys),
             "log_merkle_tree": self._build_log_tree_snapshot(all_checkpoints),
             "latest_checkpoint": (

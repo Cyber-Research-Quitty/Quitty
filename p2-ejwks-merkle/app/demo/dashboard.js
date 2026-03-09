@@ -31,6 +31,117 @@ function setHtml(id, html) {
   document.getElementById(id).innerHTML = html;
 }
 
+function bloomMetric(metrics, name) {
+  return metrics?.[name] ?? 0;
+}
+
+function pct(value) {
+  return `${((value ?? 0) * 100).toFixed(1)}%`;
+}
+
+function percentWidth(value, total) {
+  if (!total) return "0%";
+  return `${(Math.max(value, 0) / total) * 100}%`;
+}
+
+function renderBloomLegendItem(label, value, rate, swatchClass) {
+  return `
+    <div class="bloom-legend-item">
+      <span class="bloom-swatch ${swatchClass}"></span>
+      <span class="bloom-legend-label">${escapeHtml(label)}</span>
+      <span class="bloom-legend-value">${escapeHtml(String(value))} · ${escapeHtml(pct(rate))}</span>
+    </div>
+  `;
+}
+
+function renderBloomPanel(bloom) {
+  const metrics = bloom.metrics || {};
+  const kidSummary = bloom.kid_request_summary || {};
+  const totalQueries = kidSummary.total_queries ?? 0;
+  const allowedTotal = kidSummary.allowed_total ?? 0;
+  const rejectedTotal = kidSummary.rejected_total ?? 0;
+  const maybePresent = bloomMetric(metrics, "kid_maybe_present_total");
+  const definiteMisses = bloomMetric(metrics, "kid_definite_miss_total");
+  const cacheHits = kidSummary.allowed_breakdown?.cache_hits ?? 0;
+  const rebuildHits = kidSummary.allowed_breakdown?.hits_after_rebuild ?? 0;
+
+  const decisionTotal = maybePresent + definiteMisses;
+  const allowBreakdownTotal = cacheHits + rebuildHits;
+
+  setHtml("bloom-panel-body", `
+    <div class="bloom-panel">
+      <div class="bloom-kpis">
+        <div class="bloom-kpi">
+          <div class="bloom-kpi-label">Configuration</div>
+          <div class="bloom-kpi-value">${bloom.enabled ? `${escapeHtml(String(bloom.m_bits ?? 0))} bits / ${escapeHtml(String(bloom.k_hashes ?? 0))} hashes` : "Disabled"}</div>
+        </div>
+        <div class="bloom-kpi">
+          <div class="bloom-kpi-label">Indexed Items</div>
+          <div class="bloom-kpi-value">${escapeHtml(String(bloom.indexed_items ?? 0))} items (${escapeHtml(String(bloom.indexed_kids ?? 0))} kid + ${escapeHtml(String(bloom.indexed_jkts ?? 0))} JKT)</div>
+        </div>
+      </div>
+
+      <div class="bloom-charts">
+        <section class="bloom-chart">
+          <div class="bloom-chart-head">
+            <div class="bloom-chart-title">Request Outcomes</div>
+            <div class="bloom-chart-summary">${escapeHtml(String(totalQueries))} total key lookups</div>
+          </div>
+          <div class="bloom-bar-track">
+            <div class="bloom-bar-segment bloom-bar-allowed" style="width: ${percentWidth(allowedTotal, totalQueries)}"></div>
+            <div class="bloom-bar-segment bloom-bar-rejected" style="width: ${percentWidth(rejectedTotal, totalQueries)}"></div>
+          </div>
+          <div class="bloom-legend">
+            ${renderBloomLegendItem("Allowed", allowedTotal, kidSummary.allow_rate ?? 0, "bloom-bar-allowed")}
+            ${renderBloomLegendItem("Rejected", rejectedTotal, kidSummary.reject_rate ?? 0, "bloom-bar-rejected")}
+          </div>
+        </section>
+
+        <section class="bloom-chart">
+          <div class="bloom-chart-head">
+            <div class="bloom-chart-title">Bloom Decisions</div>
+            <div class="bloom-chart-summary">pre-check result before proof lookup</div>
+          </div>
+          <div class="bloom-bar-track">
+            <div class="bloom-bar-segment bloom-bar-maybe" style="width: ${percentWidth(maybePresent, decisionTotal)}"></div>
+            <div class="bloom-bar-segment bloom-bar-definite" style="width: ${percentWidth(definiteMisses, decisionTotal)}"></div>
+          </div>
+          <div class="bloom-legend">
+            ${renderBloomLegendItem("Maybe present", maybePresent, decisionTotal ? maybePresent / decisionTotal : 0, "bloom-bar-maybe")}
+            ${renderBloomLegendItem("Definitely not present", definiteMisses, decisionTotal ? definiteMisses / decisionTotal : 0, "bloom-bar-definite")}
+          </div>
+        </section>
+
+        <section class="bloom-chart">
+          <div class="bloom-chart-head">
+            <div class="bloom-chart-title">Allowed Path Breakdown</div>
+            <div class="bloom-chart-summary">how successful lookups resolved</div>
+          </div>
+          <div class="bloom-bar-track">
+            <div class="bloom-bar-segment bloom-bar-cache" style="width: ${percentWidth(cacheHits, allowBreakdownTotal)}"></div>
+            <div class="bloom-bar-segment bloom-bar-rebuild" style="width: ${percentWidth(rebuildHits, allowBreakdownTotal)}"></div>
+          </div>
+          <div class="bloom-legend">
+            ${renderBloomLegendItem("Cache hit", cacheHits, allowBreakdownTotal ? cacheHits / allowBreakdownTotal : 0, "bloom-bar-cache")}
+            ${renderBloomLegendItem("Hit after rebuild", rebuildHits, allowBreakdownTotal ? rebuildHits / allowBreakdownTotal : 0, "bloom-bar-rebuild")}
+          </div>
+        </section>
+      </div>
+
+      <div class="bloom-hints">
+        <div class="bloom-hint negative">
+          <div class="detail-label">Definitely Not Present</div>
+          <div class="detail-value">${escapeHtml(bloom.miss_semantics || "-")}</div>
+        </div>
+        <div class="bloom-hint positive">
+          <div class="detail-label">Maybe Present</div>
+          <div class="detail-value">${escapeHtml(bloom.hit_semantics || "-")}</div>
+        </div>
+      </div>
+    </div>
+  `);
+}
+
 function renderKeys(keys) {
   const body = document.getElementById("keys-body");
   if (!keys.length) {
@@ -283,6 +394,9 @@ async function refreshDashboard() {
   const jwksRoot = data.jwks_root || {};
   const logRoot = data.log_root || {};
   const latestCheckpoint = data.latest_checkpoint || {};
+  const bloom = data.bloom_filter || {};
+  const bloomMetrics = bloom.metrics || {};
+  const kidSummary = bloom.kid_request_summary || {};
   const keys = (data.keys || []).slice().sort((a, b) => {
     if (a.status === b.status) return a.kid.localeCompare(b.kid);
     return a.status === "active" ? -1 : 1;
@@ -306,6 +420,7 @@ async function refreshDashboard() {
   setText("detail-jwks-signer", jwksRoot.sig_kid || "-");
   setText("detail-log-root", logRoot.root_hash || "-");
   setText("detail-checkpoint-entry", latestCheckpoint.entry_hash || "-");
+  renderBloomPanel(bloom);
   setText("key-summary", `${counts.active ?? 0} active / ${counts.inactive ?? 0} inactive`);
   setText("last-refresh", `Last refresh: ${fmtDate(data.generated_at)}`);
 
