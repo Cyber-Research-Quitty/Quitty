@@ -8,7 +8,9 @@ services:
       - "8300:8000"
     environment:
       JWKS_BASE_URL: ${JWKS_BASE_URL:-http://host.docker.internal:8200}
+      JWKS_PROOF_PATHS: ${JWKS_PROOF_PATHS:-/jwks/proof/{kid},/jwks/{kid}}
       JWKS_PATHS: ${JWKS_PATHS:-/jwks.json}
+      JWKS_REQUIRE_PROOF: ${JWKS_REQUIRE_PROOF:-true}
       JWKS_CACHE_TTL_SECONDS: ${JWKS_CACHE_TTL_SECONDS:-60}
       JWKS_TIMEOUT_SECONDS: ${JWKS_TIMEOUT_SECONDS:-3}
 

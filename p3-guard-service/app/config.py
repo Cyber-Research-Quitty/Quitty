@@ -7,6 +7,13 @@ load_dotenv()  # loads guard-service/.env if present
 def _split_csv(value: str) -> list[str]:
     return [p.strip() for p in value.split(",") if p.strip()]
 
+
+def _as_bool(value: str, default: bool = False) -> bool:
+    normalized = (value or "").strip().lower()
+    if not normalized:
+        return default
+    return normalized in {"1", "true", "yes", "on"}
+
 # ----------------------
 # P4 (Revocation) configuration
 # ----------------------
@@ -22,9 +29,16 @@ REVOCATION_TIMEOUT_SECONDS = float(os.getenv("REVOCATION_TIMEOUT_SECONDS", "3"))
 
 JWKS_BASE_URL = os.getenv("JWKS_BASE_URL", "http://127.0.0.1:8200")
 
+JWKS_PROOF_PATHS = _split_csv(
+    os.getenv("JWKS_PROOF_PATHS", "/jwks/proof/{kid},/jwks/{kid}")
+)
+
+# Legacy fallback paths that return {"keys": [...]}
 JWKS_PATHS = _split_csv(
     os.getenv("JWKS_PATHS", "/jwks.json")
 )
+
+JWKS_REQUIRE_PROOF = _as_bool(os.getenv("JWKS_REQUIRE_PROOF", "true"), default=True)
 
 JWKS_CACHE_TTL_SECONDS = int(os.getenv("JWKS_CACHE_TTL_SECONDS", "60"))
 

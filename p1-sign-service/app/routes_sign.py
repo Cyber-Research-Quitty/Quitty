@@ -17,6 +17,7 @@ from .metrics import SIGN_LATENCY_SECONDS, P1_ERRORS_TOTAL
 from .p2_client import post_json, P2ClientError
 
 router = APIRouter(prefix="/sign", tags=["sign"])
+_EXPORTED_KIDS: set[str] = set()
 
 
 def _now_unix() -> int:
@@ -37,6 +38,39 @@ class SignResponse(BaseModel):
     jti: str
     token_size_bytes: int
     sign_time_ms: float
+
+
+def _resolve_export_jwk(alg: AlgName, kid: str) -> dict[str, Any] | None:
+    jwks_data = keystore.jwks(alg=alg, include_all=True)
+    keys = jwks_data.get("keys")
+    if not isinstance(keys, list):
+        return None
+    for item in keys:
+        if isinstance(item, dict) and item.get("kid") == kid:
+            return item
+    return None
+
+
+def _best_effort_export_signing_key_to_p2(alg: AlgName, kid: str) -> None:
+    if not settings.p2_export_url:
+        return
+    if kid in _EXPORTED_KIDS:
+        return
+
+    export_jwk = _resolve_export_jwk(alg, kid)
+    if not export_jwk:
+        return
+
+    try:
+        post_json(
+            settings.p2_export_url,
+            export_jwk,
+            timeout_seconds=settings.p2_timeout_seconds,
+        )
+        _EXPORTED_KIDS.add(kid)
+    except P2ClientError:
+        # Do not fail token issuance if P2 is temporarily unavailable.
+        pass
 
 
 @router.post("", response_model=SignResponse)
@@ -86,6 +120,9 @@ def sign_token(body: SignRequest) -> SignResponse:
     dt_ms = elapsed * 1000.0
 
     token = f"{encoded_header}.{encoded_payload}.{b64url_encode(signature)}"
+
+    # Keep P2 in sync so P3 can immediately resolve signer kids by proof.
+    _best_effort_export_signing_key_to_p2(kp.alg, kp.kid)
 
     # Best-effort sync to P4 so P4 can expose/revoke sub/jti/kid for P1-issued tokens.
     if settings.p4_token_sync_url:
