@@ -15,12 +15,16 @@ def _request_json(
     url: str,
     payload: Dict[str, Any] | None = None,
     timeout_seconds: float = 3.0,
+    headers: Optional[Dict[str, str]] = None,
 ) -> Dict[str, Any]:
     data = json.dumps(payload).encode("utf-8") if payload is not None else None
+    request_headers = {"Content-Type": "application/json"}
+    if headers:
+        request_headers.update(headers)
     req = urllib.request.Request(
         url=url,
         data=data,
-        headers={"Content-Type": "application/json"},
+        headers=request_headers,
         method=method,
     )
 
@@ -37,9 +41,18 @@ def _request_json(
         raise P2ClientError(f"Failed to call P2: {type(e).__name__}: {e}") from e
 
 
-def post_json(url: str, payload: Dict[str, Any], timeout_seconds: float = 3.0) -> Dict[str, Any]:
-    return _request_json("POST", url, payload=payload, timeout_seconds=timeout_seconds)
+def post_json(
+    url: str,
+    payload: Dict[str, Any],
+    timeout_seconds: float = 3.0,
+    headers: Optional[Dict[str, str]] = None,
+) -> Dict[str, Any]:
+    return _request_json("POST", url, payload=payload, timeout_seconds=timeout_seconds, headers=headers)
 
 
-def delete_json(url: str, timeout_seconds: float = 3.0) -> Dict[str, Any]:
-    return _request_json("DELETE", url, payload=None, timeout_seconds=timeout_seconds)
+def delete_json(
+    url: str,
+    timeout_seconds: float = 3.0,
+    headers: Optional[Dict[str, str]] = None,
+) -> Dict[str, Any]:
+    return _request_json("DELETE", url, payload=None, timeout_seconds=timeout_seconds, headers=headers)

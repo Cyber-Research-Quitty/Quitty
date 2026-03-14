@@ -31,6 +31,9 @@ docker compose up -d redis
 # Install dependencies
 pip install -r requirements.txt
 
+# Configure local env
+cp .env.example .env
+
 # Run the API
 uvicorn app.main:app --reload --port 8200
 ```
@@ -43,6 +46,7 @@ uvicorn app.main:app --reload --port 8200
 
 curl -X POST http://localhost:8200/internal/keys/import \
   -H "Content-Type: application/json" \
+  -H "X-Admin-Api-Key: dev-admin-key" \
   -d '{
     "kid": "demo-dilithium-1",
     "kty": "OKP",
@@ -104,6 +108,7 @@ python client_verify.py --kid my-key-1
 # This should fail with validation error
 curl -X POST http://localhost:8200/internal/keys/import \
   -H "Content-Type: application/json" \
+  -H "X-Admin-Api-Key: dev-admin-key" \
   -d '{
     "kid": "invalid!@#$%^&*()",
     "kty": "OKP",

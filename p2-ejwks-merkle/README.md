@@ -17,6 +17,7 @@ Import a key
 
 curl -X POST http://127.0.0.1:8200/internal/keys/import \
   -H "Content-Type: application/json" \
+  -H "X-Admin-Api-Key: dev-admin-key" \
   -d '{
     "kid": "demo-ml-dsa-44-1",
     "kty": "PQC",
@@ -53,6 +54,6 @@ P1 (sign-service) generates new keypair, then calls:
 
 POST http://p2-jwks:8200/internal/keys/import
 
-body = public JWK with kid, kty, alg, and the public material (x for OKP / n,e for RSA / your PQC encoding fields)
+headers include X-Admin-Api-Key and body = public JWK with kid, kty, alg, and the public material (x for OKP / n,e for RSA / your PQC encoding fields)
 
 That’s it — P2 rebuilds the tree and republishes a new root.

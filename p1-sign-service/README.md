@@ -36,6 +36,7 @@ The compose file already sets defaults:
 - `DEFAULT_ALG=ml-dsa-44`
 - `KEYSTORE_PATH=data/p1-keystore.json`
 - `P2_EXPORT_URL` optional (empty by default)
+- `P2_ADMIN_API_KEY` should match P2 `ADMIN_API_KEY` when export/delete is enabled
 - `P2_TIMEOUT_SECONDS=3.0`
 
 Notes:

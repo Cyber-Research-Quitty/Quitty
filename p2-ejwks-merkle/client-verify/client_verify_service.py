@@ -142,7 +142,7 @@ def verify_kid(
     root = data.get("root")
     jwk = data.get("jwk")
     proof = data.get("merkle_proof")
-    if not root or not jwk or not proof:
+    if not root or jwk is None or proof is None:
         raise HTTPException(status_code=400, detail="P2 response missing one of: root, jwk, merkle_proof")
 
     if not verify_root_bundle_pinned(root, pinned_pub):

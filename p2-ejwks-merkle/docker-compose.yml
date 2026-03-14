@@ -22,6 +22,7 @@ services:
       - ROOT_SIGNER_KEY_PATH=/data/root_signer_key.json
       - LOG_SIGNER=ml-dsa-44
       - LOG_SIGNER_KEY_PATH=/data/log_signer_key.json
+      - ADMIN_API_KEY=${ADMIN_API_KEY:-dev-admin-key}
       - BLOOM_BITS=1048576
       - BLOOM_HASHES=7
       - BLOOM_ENABLED=${BLOOM_ENABLED:-true}

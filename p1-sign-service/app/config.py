@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     p2_export_url: str | None = None
     p2_delete_url: str | None = None
     p2_timeout_seconds: float = 3.0
+    p2_admin_api_key: str | None = None
 
     # P1 -> P4 integration
     p4_revoke_url: str | None = None

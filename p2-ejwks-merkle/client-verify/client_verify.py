@@ -96,8 +96,8 @@ def main() -> int:
 
     jwk = data.get("jwk")
     proof = data.get("merkle_proof")
-    
-    if not jwk or not proof:
+
+    if jwk is None or proof is None:
         print("❌ ERROR: Response missing 'jwk' or 'merkle_proof' fields")
         return 4
 

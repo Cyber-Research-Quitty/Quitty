@@ -2,7 +2,7 @@ from __future__ import annotations
 import os
 import logging
 from typing import Any, Dict
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException, Query, status
 from fastapi.responses import HTMLResponse
 from dotenv import load_dotenv
 from pydantic import ValidationError
@@ -32,6 +32,7 @@ ROOT_SIGNER_KEY_PATH = os.getenv("ROOT_SIGNER_KEY_PATH", "./root_signer_key.json
 # NEW: Transparency log signer (keep separate key)
 LOG_SIGNER = os.getenv("LOG_SIGNER", "ml-dsa-44")
 LOG_SIGNER_KEY_PATH = os.getenv("LOG_SIGNER_KEY_PATH", "./log_signer_key.json")
+ADMIN_API_KEY = os.getenv("ADMIN_API_KEY", "").strip()
 
 BLOOM_BITS = int(os.getenv("BLOOM_BITS", "1048576"))
 BLOOM_HASHES = int(os.getenv("BLOOM_HASHES", "7"))
@@ -75,6 +76,55 @@ def _startup() -> None:
 @app.get("/health")
 def health():
     return {"ok": True}
+
+
+@app.get("/health/details")
+def health_details():
+    redis_ok = False
+    redis_error: str | None = None
+    try:
+        redis.ping()
+        redis_ok = True
+    except Exception as e:
+        redis_error = str(e)
+
+    db_ok = True
+    db_error: str | None = None
+    key_count = 0
+    checkpoint_count = 0
+    try:
+        key_count = len(store.list_all())
+        checkpoint_count = len(store.list_checkpoints())
+    except Exception as e:
+        db_ok = False
+        db_error = str(e)
+
+    return {
+        "ok": redis_ok and db_ok,
+        "components": {
+            "redis": {"ok": redis_ok, "error": redis_error},
+            "sqlite": {
+                "ok": db_ok,
+                "error": db_error,
+                "active_keys": key_count,
+                "checkpoints": checkpoint_count,
+            },
+        },
+    }
+
+
+def _require_admin_api_key(x_admin_api_key: str | None = Header(default=None, alias="X-Admin-Api-Key")) -> None:
+    if not ADMIN_API_KEY:
+        logger.error("ADMIN_API_KEY is not configured; write endpoints are disabled")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="admin API key is not configured",
+        )
+    if x_admin_api_key != ADMIN_API_KEY:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="invalid admin API key",
+        )
 
 
 def _get_dashboard_snapshot() -> Dict[str, Any]:
@@ -152,8 +202,30 @@ def get_key_by_kid(kid: str):
     # Alias endpoint for per-key retrieval in verifier microservices.
     return get_key_proof(kid)
 
+
+@app.get("/jwks/proof-by-jkt/{jkt}")
+def get_key_proof_by_jkt(jkt: str):
+    logger.info(f"Proof request for jkt={jkt}")
+    res = svc.get_key_and_proof_by_jkt(jkt)
+    if not res:
+        logger.warning(f"Key not found by jkt={jkt}")
+        raise HTTPException(status_code=404, detail="unknown jkt")
+
+    jwk, proof, resolved_jkt = res
+    cp_list = store.list_checkpoints()
+    latest_cp = cp_list[-1] if cp_list else None
+    return {
+        "kid": jwk.get("kid"),
+        "jkt": resolved_jkt,
+        "jwk": jwk,
+        "merkle_proof": proof,
+        "root": svc.get_jwks_root_bundle() or svc.rebuild_tree(),
+        "latest_checkpoint_idx": latest_cp.idx if latest_cp else None,
+    }
+
 @app.post("/internal/keys/import", response_model=ImportKeyOut)
-def import_key(payload: Dict[str, Any]):
+def import_key(payload: Dict[str, Any], x_admin_api_key: str | None = Header(default=None, alias="X-Admin-Api-Key")):
+    _require_admin_api_key(x_admin_api_key)
     try:
         normalized = _normalize_import_payload(payload)
         jwk = JWKIn.model_validate(normalized)
@@ -175,7 +247,8 @@ def import_key(payload: Dict[str, Any]):
 
 
 @app.delete("/internal/keys/{kid}")
-def delete_key(kid: str):
+def delete_key(kid: str, x_admin_api_key: str | None = Header(default=None, alias="X-Admin-Api-Key")):
+    _require_admin_api_key(x_admin_api_key)
     logger.info(f"Deleting key: kid={kid}")
     result = svc.remove_key(kid)
     if not result["removed"]:
@@ -218,7 +291,7 @@ def get_log_latest():
         raise HTTPException(status_code=503, detail="log bundle not available")
     
     proof = svc.get_log_inclusion_proof(latest.idx)
-    if not proof:
+    if proof is None:
         raise HTTPException(status_code=503, detail="proof not available")
     
     return {
@@ -249,7 +322,7 @@ def get_log_checkpoint(idx: int):
         raise HTTPException(status_code=503, detail="log bundle not available")
     
     proof = svc.get_log_inclusion_proof(cp.idx)
-    if not proof:
+    if proof is None:
         raise HTTPException(status_code=503, detail="proof not available")
     
     return {
@@ -262,4 +335,29 @@ def get_log_checkpoint(idx: int):
         },
         "log_root": log_bundle,
         "inclusion_proof": proof,
+    }
+
+
+@app.get("/log/checkpoints")
+def list_log_checkpoints(
+    limit: int = Query(default=10, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+):
+    checkpoints = store.list_checkpoints()
+    total = len(checkpoints)
+    window = checkpoints[offset:offset + limit]
+    return {
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "items": [
+            {
+                "idx": cp.idx,
+                "epoch": cp.epoch,
+                "jwks_root_hash": cp.jwks_root_hash,
+                "prev_hash": cp.prev_hash,
+                "entry_hash": cp.entry_hash,
+            }
+            for cp in window
+        ],
     }

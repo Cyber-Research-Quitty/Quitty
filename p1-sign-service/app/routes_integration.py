@@ -11,6 +11,12 @@ from .p2_client import post_json, delete_json, P2ClientError
 router = APIRouter(prefix="/internal/keys", tags=["internal"])
 
 
+def _p2_headers() -> dict[str, str] | None:
+    if not settings.p2_admin_api_key:
+        return None
+    return {"X-Admin-Api-Key": settings.p2_admin_api_key}
+
+
 @router.get("/public")
 def public_keys(alg: AlgName | None = None, include_all: bool = True):
     return keystore.list_public(alg=alg, include_all=include_all)
@@ -64,7 +70,12 @@ def export_to_p2(body: ExportRequest):
     export_jwk = _resolve_export_jwk(body.alg, kp.kid)
 
     try:
-        resp = post_json(settings.p2_export_url, export_jwk, timeout_seconds=settings.p2_timeout_seconds)
+        resp = post_json(
+            settings.p2_export_url,
+            export_jwk,
+            timeout_seconds=settings.p2_timeout_seconds,
+            headers=_p2_headers(),
+        )
     except P2ClientError as e:
         raise HTTPException(status_code=502, detail=str(e))
 
@@ -98,7 +109,12 @@ def rotate_key(body: RotateRequest):
             export_jwk = _resolve_export_jwk(body.alg, kp.kid)
 
             try:
-                p2_resp = post_json(settings.p2_export_url, export_jwk, timeout_seconds=settings.p2_timeout_seconds)
+                p2_resp = post_json(
+                    settings.p2_export_url,
+                    export_jwk,
+                    timeout_seconds=settings.p2_timeout_seconds,
+                    headers=_p2_headers(),
+                )
                 exported = True
             except P2ClientError as e:
                 raise HTTPException(status_code=502, detail=f"rotated_but_export_failed: {e}")
@@ -149,6 +165,7 @@ def activate_key(body: KeyStateChangeRequest):
                 settings.p2_export_url,
                 export_jwk,
                 timeout_seconds=settings.p2_timeout_seconds,
+                headers=_p2_headers(),
             )
             exported = True
         except P2ClientError as e:
@@ -181,7 +198,11 @@ def deactivate_key(body: DeactivateKeyRequest):
     if settings.p2_delete_url:
         delete_url = settings.p2_delete_url.rstrip("/") + f"/{kp.kid}"
         try:
-            p2_response = delete_json(delete_url, timeout_seconds=settings.p2_timeout_seconds)
+            p2_response = delete_json(
+                delete_url,
+                timeout_seconds=settings.p2_timeout_seconds,
+                headers=_p2_headers(),
+            )
             p2_removed = True
         except P2ClientError as e:
             # Idempotent behavior: if key is already absent in P2, continue.

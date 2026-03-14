@@ -20,6 +20,12 @@ router = APIRouter(prefix="/sign", tags=["sign"])
 _EXPORTED_KIDS: set[str] = set()
 
 
+def _p2_headers() -> dict[str, str] | None:
+    if not settings.p2_admin_api_key:
+        return None
+    return {"X-Admin-Api-Key": settings.p2_admin_api_key}
+
+
 def _now_unix() -> int:
     return int(datetime.now(timezone.utc).timestamp())
 
@@ -66,6 +72,7 @@ def _best_effort_export_signing_key_to_p2(alg: AlgName, kid: str) -> None:
             settings.p2_export_url,
             export_jwk,
             timeout_seconds=settings.p2_timeout_seconds,
+            headers=_p2_headers(),
         )
         _EXPORTED_KIDS.add(kid)
     except P2ClientError:
