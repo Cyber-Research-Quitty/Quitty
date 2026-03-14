@@ -38,7 +38,38 @@ BLOOM_BITS = int(os.getenv("BLOOM_BITS", "1048576"))
 BLOOM_HASHES = int(os.getenv("BLOOM_HASHES", "7"))
 BLOOM_ENABLED = os.getenv("BLOOM_ENABLED", "true").strip().lower() in {"1", "true", "yes", "on"}
 
-app = FastAPI(title="Merkle-Enhanced E-JWKS + Transparency", version="0.2.0")
+TAGS_METADATA = [
+    {
+        "name": "01 Health",
+        "description": "Service readiness and component status.",
+    },
+    {
+        "name": "02 JWKS Active Set",
+        "description": "Signed active-set root and key inclusion proofs.",
+    },
+    {
+        "name": "03 Transparency Log",
+        "description": "Checkpoint log root, checkpoint retrieval, and log inclusion proofs.",
+    },
+    {
+        "name": "04 Consistency Proofs",
+        "description": "Append-only verification between checkpoint/log sizes.",
+    },
+    {
+        "name": "05 Witness and Gossip",
+        "description": "Witness observation, signed exchange, and equivocation signals.",
+    },
+    {
+        "name": "99 Internal Admin",
+        "description": "Privileged write/admin operations requiring X-Admin-Api-Key.",
+    },
+]
+
+app = FastAPI(
+    title="Merkle-Enhanced E-JWKS + Transparency",
+    version="0.2.0",
+    openapi_tags=TAGS_METADATA,
+)
 
 logger.info(f"Initializing KeyStore at {APP_DB_PATH}")
 store = KeyStore(APP_DB_PATH)
@@ -73,12 +104,12 @@ def _startup() -> None:
         f"bloom_enabled={BLOOM_ENABLED}, bloom_bits={BLOOM_BITS}, bloom_hashes={BLOOM_HASHES}"
     )
 
-@app.get("/health")
+@app.get("/health", tags=["01 Health"], summary="Basic Service Health")
 def health():
     return {"ok": True}
 
 
-@app.get("/health/details")
+@app.get("/health/details", tags=["01 Health"], summary="Detailed Dependency Health")
 def health_details():
     redis_ok = False
     redis_error: str | None = None
@@ -152,13 +183,13 @@ def dashboard_data():
 def present():
     return HTMLResponse(render_present_html())
 
-@app.get("/jwks.json", deprecated=True)
+@app.get("/jwks.json", deprecated=True, tags=["02 JWKS Active Set"], summary="Legacy JWKS (Deprecated)")
 def legacy_jwks():
     keys = [rec.jwk for rec in store.list_all()]
     logger.debug(f"Served legacy JWKS with {len(keys)} keys")
     return {"keys": keys}
 
-@app.get("/jwks/root")
+@app.get("/jwks/root", tags=["02 JWKS Active Set"], summary="Get Signed Active-Set Root")
 def get_jwks_root():
     bundle = svc.get_jwks_root_bundle()
     if not bundle:
@@ -167,7 +198,7 @@ def get_jwks_root():
     logger.debug(f"Served JWKS root (epoch={bundle.get('epoch')})")
     return bundle
 
-@app.get("/jwks/proof/{kid}")
+@app.get("/jwks/proof/{kid}", tags=["02 JWKS Active Set"], summary="Get Key Inclusion Proof by KID")
 def get_key_proof(kid: str):
     logger.info(f"Proof request for kid={kid}")
     res = svc.get_key_and_proof_by_kid(kid)
@@ -197,13 +228,13 @@ def _normalize_import_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
         return payload["jwk"]
     return payload
 
-@app.get("/jwks/{kid}")
+@app.get("/jwks/{kid}", tags=["02 JWKS Active Set"], summary="Get Key Proof Alias by KID")
 def get_key_by_kid(kid: str):
     # Alias endpoint for per-key retrieval in verifier microservices.
     return get_key_proof(kid)
 
 
-@app.get("/jwks/proof-by-jkt/{jkt}")
+@app.get("/jwks/proof-by-jkt/{jkt}", tags=["02 JWKS Active Set"], summary="Get Key Inclusion Proof by JKT")
 def get_key_proof_by_jkt(jkt: str):
     logger.info(f"Proof request for jkt={jkt}")
     res = svc.get_key_and_proof_by_jkt(jkt)
@@ -223,7 +254,12 @@ def get_key_proof_by_jkt(jkt: str):
         "latest_checkpoint_idx": latest_cp.idx if latest_cp else None,
     }
 
-@app.post("/internal/keys/import", response_model=ImportKeyOut)
+@app.post(
+    "/internal/keys/import",
+    response_model=ImportKeyOut,
+    tags=["99 Internal Admin"],
+    summary="Import or Activate Public Key",
+)
 def import_key(payload: Dict[str, Any], x_admin_api_key: str | None = Header(default=None, alias="X-Admin-Api-Key")):
     _require_admin_api_key(x_admin_api_key)
     try:
@@ -246,7 +282,7 @@ def import_key(payload: Dict[str, Any], x_admin_api_key: str | None = Header(def
         raise HTTPException(status_code=500, detail=f"Import failed: {str(e)}")
 
 
-@app.delete("/internal/keys/{kid}")
+@app.delete("/internal/keys/{kid}", tags=["99 Internal Admin"], summary="Deactivate Key by KID")
 def delete_key(kid: str, x_admin_api_key: str | None = Header(default=None, alias="X-Admin-Api-Key")):
     _require_admin_api_key(x_admin_api_key)
     logger.info(f"Deleting key: kid={kid}")
@@ -257,7 +293,7 @@ def delete_key(kid: str, x_admin_api_key: str | None = Header(default=None, alia
 
 # -------------------- Transparency Log API --------------------
 
-@app.get("/log/root")
+@app.get("/log/root", tags=["03 Transparency Log"], summary="Get Signed Log Root")
 def get_log_root():
     bundle = svc.get_log_bundle()
     if not bundle:
@@ -270,7 +306,7 @@ def get_log_root():
     logger.debug(f"Served log root (epoch={bundle.get('epoch')})")
     return bundle
 
-@app.get("/log/latest")
+@app.get("/log/latest", tags=["03 Transparency Log"], summary="Get Latest Checkpoint and Log Inclusion Proof")
 def get_log_latest():
     cps = store.list_checkpoints()
     if not cps:
@@ -306,7 +342,7 @@ def get_log_latest():
         "inclusion_proof": proof,
     }
 
-@app.get("/log/checkpoint/{idx}")
+@app.get("/log/checkpoint/{idx}", tags=["03 Transparency Log"], summary="Get Checkpoint by Index")
 def get_log_checkpoint(idx: int):
     logger.info(f"Checkpoint request: idx={idx}")
     cp = store.get_checkpoint(idx)
@@ -338,7 +374,7 @@ def get_log_checkpoint(idx: int):
     }
 
 
-@app.get("/log/checkpoints")
+@app.get("/log/checkpoints", tags=["03 Transparency Log"], summary="List Checkpoints")
 def list_log_checkpoints(
     limit: int = Query(default=10, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
@@ -363,7 +399,7 @@ def list_log_checkpoints(
     }
 
 
-@app.get("/log/consistency")
+@app.get("/log/consistency", tags=["04 Consistency Proofs"], summary="Get Hash-Chain Consistency Proof")
 def get_log_consistency(
     from_idx: int = Query(..., ge=1),
     to_idx: int = Query(..., ge=1),
@@ -374,7 +410,7 @@ def get_log_consistency(
     return proof
 
 
-@app.post("/log/witness/observe")
+@app.post("/log/witness/observe", tags=["05 Witness and Gossip"], summary="Submit Witness Observation")
 def post_witness_observation(
     payload: Dict[str, Any],
     x_admin_api_key: str | None = Header(default=None, alias="X-Admin-Api-Key"),
@@ -408,14 +444,14 @@ def post_witness_observation(
     return result
 
 
-@app.get("/log/witness/state")
+@app.get("/log/witness/state", tags=["05 Witness and Gossip"], summary="Get Witness Observation State")
 def get_witness_state(
     limit: int = Query(default=50, ge=1, le=200),
 ):
     return svc.get_witness_state(limit=limit)
 
 
-@app.get("/log/consistency/rfc6962")
+@app.get("/log/consistency/rfc6962", tags=["04 Consistency Proofs"], summary="Generate RFC6962 Consistency Proof")
 def get_rfc6962_consistency(
     old_size: int = Query(..., ge=0),
     new_size: int = Query(..., ge=0),
@@ -426,7 +462,7 @@ def get_rfc6962_consistency(
     return proof
 
 
-@app.post("/log/consistency/rfc6962/verify")
+@app.post("/log/consistency/rfc6962/verify", tags=["04 Consistency Proofs"], summary="Verify RFC6962 Consistency Proof")
 def verify_rfc6962_consistency(payload: Dict[str, Any]):
     old_size = payload.get("old_size")
     new_size = payload.get("new_size")
@@ -455,7 +491,7 @@ def verify_rfc6962_consistency(payload: Dict[str, Any]):
     return {"valid": valid}
 
 
-@app.post("/log/witness/register")
+@app.post("/log/witness/register", tags=["05 Witness and Gossip"], summary="Register Witness Public Key")
 def register_witness(
     payload: Dict[str, Any],
     x_admin_api_key: str | None = Header(default=None, alias="X-Admin-Api-Key"),
@@ -480,12 +516,12 @@ def register_witness(
     )
 
 
-@app.get("/log/witness/registry")
+@app.get("/log/witness/registry", tags=["05 Witness and Gossip"], summary="List Witness Registry")
 def get_witness_registry():
     return {"witnesses": svc.list_witness_identities()}
 
 
-@app.post("/log/witness/sign")
+@app.post("/log/witness/sign", tags=["05 Witness and Gossip"], summary="Submit Signed Witness Checkpoint")
 def submit_witness_signature(payload: Dict[str, Any]):
     witness_id = str(payload.get("witness_id", "")).strip()
     checkpoint_idx = payload.get("checkpoint_idx")
@@ -520,7 +556,7 @@ def submit_witness_signature(payload: Dict[str, Any]):
         raise HTTPException(status_code=412, detail=str(exc))
 
 
-@app.get("/log/witness/exchange/{checkpoint_idx}")
+@app.get("/log/witness/exchange/{checkpoint_idx}", tags=["05 Witness and Gossip"], summary="Get Signed Witness Exchange for Checkpoint")
 def get_signed_checkpoint_exchange(
     checkpoint_idx: int,
     min_signatures: int = Query(default=2, ge=1, le=20),
