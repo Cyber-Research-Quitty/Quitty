@@ -1,5 +1,12 @@
-from fastapi import FastAPI
+import os
+from typing import Annotated, Optional
+
+import httpx
+from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+
+P3_VALIDATE_URL = os.getenv("P3_VALIDATE_URL", "http://host.docker.internal:8300/guard/validate")
+TOKEN_TIMEOUT_SECONDS = float(os.getenv("TOKEN_TIMEOUT_SECONDS", "5"))
 
 app = FastAPI(title="product-service")
 app.add_middleware(
@@ -9,6 +16,34 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+async def get_current_user(authorization: Annotated[Optional[str], Header()] = None) -> dict:
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing bearer token")
+
+    token = authorization.split(" ", 1)[1]
+    try:
+        async with httpx.AsyncClient(timeout=TOKEN_TIMEOUT_SECONDS) as client:
+            response = await client.get(
+                P3_VALIDATE_URL,
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            response.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code in (400, 401):
+            raise HTTPException(status_code=401, detail="Invalid token") from exc
+        raise HTTPException(status_code=503, detail="P3 guard unavailable") from exc
+    except httpx.RequestError as exc:
+        raise HTTPException(status_code=503, detail="P3 guard unavailable") from exc
+
+    body = response.json()
+    if not body.get("valid"):
+        raise HTTPException(status_code=401, detail="Invalid token")
+    claims = body.get("claims")
+    if not isinstance(claims, dict):
+        raise HTTPException(status_code=401, detail="Invalid token claims")
+    return claims
 
 PRODUCTS = [
     {
@@ -74,10 +109,10 @@ def health() -> dict:
 
 
 @app.get("/products")
-def list_products() -> dict:
+async def list_products(_: dict = Depends(get_current_user)) -> dict:
     return {"items": PRODUCTS}
 
 
 @app.get("/products/featured")
-def featured_products() -> dict:
+async def featured_products(_: dict = Depends(get_current_user)) -> dict:
     return {"items": [product for product in PRODUCTS if product["featured"]]}

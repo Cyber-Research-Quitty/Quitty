@@ -24,6 +24,8 @@ services:
     build: ./db
     environment:
       DATABASE_URL: sqlite:////data/cart.db
+      P3_VALIDATE_URL: ${QUITTY_P3_VALIDATE_URL:-http://host.docker.internal:8300/guard/validate}
+      TOKEN_TIMEOUT_SECONDS: 5
     ports:
       - '8002:8002'
     volumes:
@@ -43,6 +45,9 @@ services:
 
   product:
     build: ./product
+    environment:
+      P3_VALIDATE_URL: ${QUITTY_P3_VALIDATE_URL:-http://host.docker.internal:8300/guard/validate}
+      TOKEN_TIMEOUT_SECONDS: 5
     ports:
       - '8004:8004'
 

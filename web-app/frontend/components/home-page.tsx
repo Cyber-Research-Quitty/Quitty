@@ -40,7 +40,7 @@ export function HomePage() {
     setProfile((await profileResponse.json()) as UserProfile);
 
     const [productResponse, cartResponse, frameworkResponse, sessionResponse] = await Promise.all([
-      fetch(`${productApiUrl}/products`),
+      fetch(`${productApiUrl}/products`, { headers: { Authorization: `Bearer ${token}` } }),
       fetch(`${cartApiUrl}/cart`, { headers: { Authorization: `Bearer ${token}` } }),
       fetch(`${authApiUrl}/framework/status`),
       fetch(`${authApiUrl}/session/details`, { headers: { Authorization: `Bearer ${token}` } })

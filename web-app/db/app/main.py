@@ -1,12 +1,16 @@
 from contextlib import asynccontextmanager
 import os
+from typing import Annotated, Optional
 
-from fastapi import FastAPI, HTTPException
+import httpx
+from fastapi import Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import Float, Integer, String, create_engine, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./cart.db")
+P3_VALIDATE_URL = os.getenv("P3_VALIDATE_URL", "http://host.docker.internal:8300/guard/validate")
+TOKEN_TIMEOUT_SECONDS = float(os.getenv("TOKEN_TIMEOUT_SECONDS", "5"))
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {})
 SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 
@@ -52,13 +56,43 @@ async def lifespan(_: FastAPI):
 app = FastAPI(title="db-service", lifespan=lifespan)
 
 
+def get_current_user(authorization: Annotated[Optional[str], Header()] = None) -> dict:
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing bearer token")
+
+    token = authorization.split(" ", 1)[1]
+    try:
+        response = httpx.get(
+            P3_VALIDATE_URL,
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=TOKEN_TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code in (400, 401):
+            raise HTTPException(status_code=401, detail="Invalid token") from exc
+        raise HTTPException(status_code=503, detail="P3 guard unavailable") from exc
+    except httpx.RequestError as exc:
+        raise HTTPException(status_code=503, detail="P3 guard unavailable") from exc
+
+    body = response.json()
+    if not body.get("valid"):
+        raise HTTPException(status_code=401, detail="Invalid token")
+    claims = body.get("claims")
+    if not isinstance(claims, dict):
+        raise HTTPException(status_code=401, detail="Invalid token claims")
+    return claims
+
+
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok"}
 
 
 @app.get("/cart/{user_id}")
-def get_cart(user_id: str) -> dict:
+def get_cart(user_id: str, current_user: dict = Depends(get_current_user)) -> dict:
+    if current_user.get("sub") != user_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
     with SessionLocal() as session:
         items = session.scalars(select(CartItem).where(CartItem.user_id == user_id)).all()
         serialized = [CartItemResponse.model_validate(item).model_dump() for item in items]
@@ -67,7 +101,9 @@ def get_cart(user_id: str) -> dict:
 
 
 @app.post("/cart", response_model=CartItemResponse)
-def add_to_cart(payload: CartItemCreate) -> CartItemResponse:
+def add_to_cart(payload: CartItemCreate, current_user: dict = Depends(get_current_user)) -> CartItemResponse:
+    if current_user.get("sub") != payload.user_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
     if payload.quantity <= 0:
         raise HTTPException(status_code=400, detail="Quantity must be positive")
     if payload.price < 0:
@@ -82,7 +118,9 @@ def add_to_cart(payload: CartItemCreate) -> CartItemResponse:
 
 
 @app.delete("/cart/{user_id}/{item_id}")
-def delete_item(user_id: str, item_id: int) -> dict:
+def delete_item(user_id: str, item_id: int, current_user: dict = Depends(get_current_user)) -> dict:
+    if current_user.get("sub") != user_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
     with SessionLocal() as session:
         item = session.get(CartItem, item_id)
         if item is None or item.user_id != user_id:
