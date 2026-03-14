@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import time
 from pathlib import Path
 import httpx
 
@@ -45,6 +46,18 @@ def main() -> int:
         default="./root_signer_key.json",
         help="Path to root signer key file to auto-extract public key",
     )
+    ap.add_argument(
+        "--max-root-age-seconds",
+        type=int,
+        default=300,
+        help="Reject roots older than this age (seconds).",
+    )
+    ap.add_argument(
+        "--max-clock-skew-seconds",
+        type=int,
+        default=60,
+        help="Allow this much future skew for root epoch (seconds).",
+    )
     args = ap.parse_args()
 
     # Try to get pinned public key in order of priority:
@@ -86,6 +99,29 @@ def main() -> int:
         print("❌ ERROR: Response missing 'root' field")
         return 2
 
+    root_epoch = root.get("epoch")
+    if not isinstance(root_epoch, int):
+        print("❌ ERROR: Root bundle missing valid epoch")
+        return 6
+
+    now = int(time.time())
+    age = now - root_epoch
+    if age > args.max_root_age_seconds:
+        print("❌ Root freshness FAILED")
+        print(
+            f"   root_age={age}s exceeds max_root_age={args.max_root_age_seconds}s"
+        )
+        return 7
+    if age < -args.max_clock_skew_seconds:
+        print("❌ Root freshness FAILED")
+        print(
+            f"   root epoch is too far in the future (age={age}s, allowed skew={args.max_clock_skew_seconds}s)"
+        )
+        return 8
+    print(
+        f"✅ Root freshness OK (age={age}s, max={args.max_root_age_seconds}s, skew={args.max_clock_skew_seconds}s)"
+    )
+
     # ✅ Research-grade: verify signature using pinned public key (NOT network key)
     print("🔐 Verifying root signature with pinned public key...")
     if not verify_root_bundle_pinned(root, pinned_pub):
@@ -115,6 +151,8 @@ def main() -> int:
     print(f"Thumbprint:    {data.get('jkt')}")
     print(f"Algorithm:     {jwk.get('alg', 'N/A')}")
     print(f"Key Type:      {jwk.get('kty')}")
+    print(f"Root epoch:    {root_epoch}")
+    print(f"Root age:      {age}s")
     if data.get('latest_checkpoint_idx'):
         print(f"Checkpoint:    #{data.get('latest_checkpoint_idx')}")
     print("\nThe key has been cryptographically verified against the pinned")

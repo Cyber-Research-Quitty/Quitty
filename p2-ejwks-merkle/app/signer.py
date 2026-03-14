@@ -133,3 +133,17 @@ def verify_root_bundle_pinned(bundle: Dict[str, Any], pinned_pub_b64: str) -> bo
             return s.verify(msg, signature, b64url_decode(pinned_pub_b64))
 
     return False
+
+
+def verify_detached_signature(sig_alg: str, public_key_b64: str, message: bytes, signature_b64: str) -> bool:
+    signature = b64url_decode(signature_b64)
+
+    if sig_alg == "ml-dsa-44":
+        try:
+            import oqs  # type: ignore
+        except Exception:
+            return False
+        with oqs.Signature("ML-DSA-44") as s:
+            return s.verify(message, signature, b64url_decode(public_key_b64))
+
+    return False

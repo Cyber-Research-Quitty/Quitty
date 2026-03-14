@@ -361,3 +361,174 @@ def list_log_checkpoints(
             for cp in window
         ],
     }
+
+
+@app.get("/log/consistency")
+def get_log_consistency(
+    from_idx: int = Query(..., ge=1),
+    to_idx: int = Query(..., ge=1),
+):
+    proof = svc.get_append_only_consistency_proof(from_idx=from_idx, to_idx=to_idx)
+    if not proof:
+        raise HTTPException(status_code=404, detail="consistency range unavailable")
+    return proof
+
+
+@app.post("/log/witness/observe")
+def post_witness_observation(
+    payload: Dict[str, Any],
+    x_admin_api_key: str | None = Header(default=None, alias="X-Admin-Api-Key"),
+):
+    _require_admin_api_key(x_admin_api_key)
+
+    observer_id = str(payload.get("observer_id", "")).strip()
+    checkpoint_idx_raw = payload.get("checkpoint_idx")
+    epoch_raw = payload.get("epoch")
+    log_root_hash = str(payload.get("log_root_hash", "")).strip()
+    observed_at_raw = payload.get("observed_at")
+
+    if not observer_id:
+        raise HTTPException(status_code=422, detail="observer_id is required")
+    if not isinstance(checkpoint_idx_raw, int) or checkpoint_idx_raw < 1:
+        raise HTTPException(status_code=422, detail="checkpoint_idx must be an integer >= 1")
+    if not isinstance(epoch_raw, int) or epoch_raw < 0:
+        raise HTTPException(status_code=422, detail="epoch must be a non-negative integer")
+    if not log_root_hash:
+        raise HTTPException(status_code=422, detail="log_root_hash is required")
+    if observed_at_raw is not None and (not isinstance(observed_at_raw, int) or observed_at_raw < 0):
+        raise HTTPException(status_code=422, detail="observed_at must be a non-negative integer")
+
+    result = svc.record_witness_observation(
+        observer_id=observer_id,
+        checkpoint_idx=checkpoint_idx_raw,
+        epoch=epoch_raw,
+        log_root_hash=log_root_hash,
+        observed_at=observed_at_raw,
+    )
+    return result
+
+
+@app.get("/log/witness/state")
+def get_witness_state(
+    limit: int = Query(default=50, ge=1, le=200),
+):
+    return svc.get_witness_state(limit=limit)
+
+
+@app.get("/log/consistency/rfc6962")
+def get_rfc6962_consistency(
+    old_size: int = Query(..., ge=0),
+    new_size: int = Query(..., ge=0),
+):
+    proof = svc.get_rfc6962_consistency_proof(old_size=old_size, new_size=new_size)
+    if not proof:
+        raise HTTPException(status_code=404, detail="RFC6962 consistency range unavailable")
+    return proof
+
+
+@app.post("/log/consistency/rfc6962/verify")
+def verify_rfc6962_consistency(payload: Dict[str, Any]):
+    old_size = payload.get("old_size")
+    new_size = payload.get("new_size")
+    old_root = payload.get("old_root")
+    new_root = payload.get("new_root")
+    proof = payload.get("proof")
+
+    if not isinstance(old_size, int) or old_size < 0:
+        raise HTTPException(status_code=422, detail="old_size must be an integer >= 0")
+    if not isinstance(new_size, int) or new_size < 0:
+        raise HTTPException(status_code=422, detail="new_size must be an integer >= 0")
+    if not isinstance(old_root, str) or not old_root:
+        raise HTTPException(status_code=422, detail="old_root is required")
+    if not isinstance(new_root, str) or not new_root:
+        raise HTTPException(status_code=422, detail="new_root is required")
+    if not isinstance(proof, list) or not all(isinstance(item, str) for item in proof):
+        raise HTTPException(status_code=422, detail="proof must be a list of base64url strings")
+
+    valid = svc.verify_rfc6962_consistency_proof(
+        old_size=old_size,
+        new_size=new_size,
+        old_root=old_root,
+        new_root=new_root,
+        proof=proof,
+    )
+    return {"valid": valid}
+
+
+@app.post("/log/witness/register")
+def register_witness(
+    payload: Dict[str, Any],
+    x_admin_api_key: str | None = Header(default=None, alias="X-Admin-Api-Key"),
+):
+    _require_admin_api_key(x_admin_api_key)
+
+    witness_id = str(payload.get("witness_id", "")).strip()
+    sig_alg = str(payload.get("sig_alg", "")).strip().lower()
+    public_key = str(payload.get("public_key", "")).strip()
+
+    if not witness_id:
+        raise HTTPException(status_code=422, detail="witness_id is required")
+    if sig_alg != "ml-dsa-44":
+        raise HTTPException(status_code=422, detail="sig_alg must be ml-dsa-44")
+    if not public_key:
+        raise HTTPException(status_code=422, detail="public_key is required")
+
+    return svc.register_witness_identity(
+        witness_id=witness_id,
+        sig_alg=sig_alg,
+        public_key=public_key,
+    )
+
+
+@app.get("/log/witness/registry")
+def get_witness_registry():
+    return {"witnesses": svc.list_witness_identities()}
+
+
+@app.post("/log/witness/sign")
+def submit_witness_signature(payload: Dict[str, Any]):
+    witness_id = str(payload.get("witness_id", "")).strip()
+    checkpoint_idx = payload.get("checkpoint_idx")
+    epoch = payload.get("epoch")
+    log_root_hash = str(payload.get("log_root_hash", "")).strip()
+    signature = str(payload.get("signature", "")).strip()
+    observed_at = payload.get("observed_at")
+
+    if not witness_id:
+        raise HTTPException(status_code=422, detail="witness_id is required")
+    if not isinstance(checkpoint_idx, int) or checkpoint_idx < 1:
+        raise HTTPException(status_code=422, detail="checkpoint_idx must be an integer >= 1")
+    if not isinstance(epoch, int) or epoch < 0:
+        raise HTTPException(status_code=422, detail="epoch must be a non-negative integer")
+    if not log_root_hash:
+        raise HTTPException(status_code=422, detail="log_root_hash is required")
+    if not signature:
+        raise HTTPException(status_code=422, detail="signature is required")
+    if observed_at is not None and (not isinstance(observed_at, int) or observed_at < 0):
+        raise HTTPException(status_code=422, detail="observed_at must be a non-negative integer")
+
+    try:
+        return svc.ingest_witness_signed_checkpoint(
+            witness_id=witness_id,
+            checkpoint_idx=checkpoint_idx,
+            epoch=epoch,
+            log_root_hash=log_root_hash,
+            signature=signature,
+            observed_at=observed_at,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=412, detail=str(exc))
+
+
+@app.get("/log/witness/exchange/{checkpoint_idx}")
+def get_signed_checkpoint_exchange(
+    checkpoint_idx: int,
+    min_signatures: int = Query(default=2, ge=1, le=20),
+):
+    exchange = svc.get_signed_checkpoint_exchange(
+        checkpoint_idx=checkpoint_idx,
+        min_signatures=min_signatures,
+    )
+    if not exchange:
+        raise HTTPException(status_code=404, detail="unknown checkpoint")
+    return exchange

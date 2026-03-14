@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -23,6 +24,8 @@ from app.signer import verify_root_bundle_pinned
 PINNED_ROOT_PUB_B64 = "PASTE_THE_ROOT_PUBLIC_KEY_HERE"
 DEFAULT_P2_BASE_URL = "http://127.0.0.1:8200"
 DEFAULT_KEY_FILE = "./root_signer_key.json"
+DEFAULT_MAX_ROOT_AGE_SECONDS = 300
+DEFAULT_MAX_CLOCK_SKEW_SECONDS = 60
 IGNORED_PINNED_PUB_VALUES = {
     "",
     "string",
@@ -50,6 +53,8 @@ class VerifyRequest(BaseModel):
     base_url: str = Field(default="http://ejwks-api:8000", description="P2 base URL")
     pinned_pub: str | None = Field(default=None, description="Pinned root public key (base64url)")
     key_file: str = Field(default="/data/root_signer_key.json", description="Path to root signer key JSON file")
+    max_root_age_seconds: int = Field(default=DEFAULT_MAX_ROOT_AGE_SECONDS, ge=1, le=86400)
+    max_clock_skew_seconds: int = Field(default=DEFAULT_MAX_CLOCK_SKEW_SECONDS, ge=0, le=3600)
 
 
 class VerifyResponse(BaseModel):
@@ -61,6 +66,9 @@ class VerifyResponse(BaseModel):
     checkpoint_idx: int | None = None
     root_hash: str
     root_epoch: int
+    root_age_seconds: int
+    max_root_age_seconds: int
+    max_clock_skew_seconds: int
     source_base_url: str
 
 
@@ -110,6 +118,8 @@ def verify_kid(
     base_url: str | None = None,
     pinned_pub_override: str | None = None,
     key_file: str | None = None,
+    max_root_age_seconds: int | None = None,
+    max_clock_skew_seconds: int | None = None,
 ) -> VerifyResponse:
     resolved_base_url = (base_url or os.getenv("CLIENT_VERIFY_P2_BASE_URL", DEFAULT_P2_BASE_URL)).rstrip("/")
     pinned_pub = resolve_pinned_pub(pinned_pub_override, key_file)
@@ -152,6 +162,37 @@ def verify_kid(
     if not root_hash:
         raise HTTPException(status_code=400, detail="P2 response root bundle missing root_hash")
 
+    root_epoch = root.get("epoch")
+    if not isinstance(root_epoch, int):
+        raise HTTPException(status_code=400, detail="P2 response root bundle missing valid epoch")
+
+    resolved_max_root_age = max_root_age_seconds
+    if resolved_max_root_age is None:
+        resolved_max_root_age = int(os.getenv("CLIENT_VERIFY_MAX_ROOT_AGE_SECONDS", str(DEFAULT_MAX_ROOT_AGE_SECONDS)))
+
+    resolved_max_clock_skew = max_clock_skew_seconds
+    if resolved_max_clock_skew is None:
+        resolved_max_clock_skew = int(os.getenv("CLIENT_VERIFY_MAX_CLOCK_SKEW_SECONDS", str(DEFAULT_MAX_CLOCK_SKEW_SECONDS)))
+
+    now = int(time.time())
+    root_age = now - root_epoch
+    if root_age > resolved_max_root_age:
+        raise HTTPException(
+            status_code=412,
+            detail=(
+                f"Root freshness policy failed: root age {root_age}s exceeds max "
+                f"{resolved_max_root_age}s"
+            ),
+        )
+    if root_age < -resolved_max_clock_skew:
+        raise HTTPException(
+            status_code=412,
+            detail=(
+                f"Root freshness policy failed: root epoch too far in future "
+                f"(age {root_age}s, allowed skew {resolved_max_clock_skew}s)"
+            ),
+        )
+
     if not verify_proof(jwk, proof, expected_root_b64=root_hash):
         raise HTTPException(status_code=412, detail="Merkle proof is invalid for this key")
 
@@ -163,7 +204,10 @@ def verify_kid(
         kty=jwk.get("kty"),
         checkpoint_idx=data.get("latest_checkpoint_idx"),
         root_hash=root_hash,
-        root_epoch=root.get("epoch", 0),
+        root_epoch=root_epoch,
+        root_age_seconds=root_age,
+        max_root_age_seconds=resolved_max_root_age,
+        max_clock_skew_seconds=resolved_max_clock_skew,
         source_base_url=resolved_base_url,
     )
 
@@ -185,4 +229,6 @@ def verify_kid_post(kid: str, req: VerifyRequest) -> VerifyResponse:
         base_url=req.base_url,
         pinned_pub_override=req.pinned_pub,
         key_file=req.key_file,
+        max_root_age_seconds=req.max_root_age_seconds,
+        max_clock_skew_seconds=req.max_clock_skew_seconds,
     )
