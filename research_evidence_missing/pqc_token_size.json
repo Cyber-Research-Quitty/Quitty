@@ -1,0 +1,27 @@
+{
+  "artifact": "pqc_token_size",
+  "source_artifacts": [
+    "research_evidence_missing/raw/pqc_token_live_samples.json",
+    "web-app-rsa/benchmark_results_rsa/summary.json"
+  ],
+  "source_measurement_timestamp_utc": "2026-03-21T10:17:29.511964+00:00",
+  "measurement_context": {
+    "endpoint": "http://localhost:8001/login",
+    "method": "POST /login on integrated PQC web-app auth service",
+    "identity": "alice@example.com",
+    "measurement_method": "len(token.encode('utf-8')) for bytes and len(token) for characters"
+  },
+  "measured_values": {
+    "algorithm": "ml-dsa-44",
+    "sample_count": 10,
+    "representative_sample_index": 1,
+    "representative_bytes": 3551,
+    "representative_characters": 3551,
+    "average_bytes": 3551.0,
+    "average_characters": 3551.0,
+    "min_bytes": 3551,
+    "max_bytes": 3551,
+    "rs256_reference_bytes": 519.0
+  },
+  "extraction_note": "PQC values were taken from research_evidence_missing/raw/pqc_token_live_samples.json. The RS256 reference value was taken from web-app-rsa/benchmark_results_rsa/summary.json."
+}

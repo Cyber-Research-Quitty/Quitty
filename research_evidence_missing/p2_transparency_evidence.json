@@ -1,0 +1,29 @@
+{
+  "artifact": "p2_transparency_evidence",
+  "source_artifact": "research_evidence_missing/raw/p2_transparency_live.json",
+  "source_measurement_timestamp_utc": "2026-03-21T10:13:48.625108+00:00",
+  "measurement_context": {
+    "p1_rotate_endpoint": "http://localhost:8100/internal/keys/rotate",
+    "p1_jwks_endpoint": "http://localhost:8100/internal/keys/jwks?alg=ml-dsa-44&include_all=true",
+    "p2_import_endpoint": "http://localhost:8200/internal/keys/import",
+    "p2_proof_endpoint": "http://localhost:8200/jwks/proof/ratHRWiLKZr8phUlq97JWQ",
+    "p2_log_latest_endpoint": "http://localhost:8200/log/latest",
+    "p2_jwks_root_endpoint": "http://localhost:8200/jwks/root"
+  },
+  "measured_values": {
+    "rotated_kid": "ratHRWiLKZr8phUlq97JWQ",
+    "published_jkt": "rbEzkrLDwbZrgyk7saIaMO2RP1hLSPzQYQSjlVQCwkQ",
+    "published_key_len": 1312,
+    "before_checkpoint_idx": 58,
+    "before_checkpoint_entry_hash": "m8gI9Xhwrej8J2ihbiMmDZuaYCaiIjBlSRyM68f_Ug0",
+    "before_jwks_root_hash": "HtdXH-eT4IGYvgEXGECZMby-Lbz_x7qgO10dQjlCbhI",
+    "after_checkpoint_idx": 59,
+    "after_checkpoint_prev_hash": "m8gI9Xhwrej8J2ihbiMmDZuaYCaiIjBlSRyM68f_Ug0",
+    "after_checkpoint_entry_hash": "U9_6fa8CwAR0gXVInqUDwtbXbWA-0qtXNbnKw7t0egM",
+    "after_jwks_root_hash": "Tm2UduySwXyoUkhjjsZI3hFB5nGc4rbqYcE6nqMPf8c",
+    "after_log_root_hash": "GvOrRcaeQbfonk03g4l9RDMvw7dAt-ThF6tjkA8hjpM",
+    "proof_latest_checkpoint_idx": 59,
+    "proof_merkle_hops": 6
+  },
+  "extraction_note": "All values were copied from research_evidence_missing/raw/p2_transparency_live.json. The before/after checkpoint linkage is preserved exactly as observed in the source artifact."
+}

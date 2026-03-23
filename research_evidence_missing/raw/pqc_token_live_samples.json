@@ -1,0 +1,168 @@
+{
+  "source_type": "live_measurement",
+  "timestamp_utc": "2026-03-21T10:17:29.511964+00:00",
+  "method": "POST /login on integrated PQC web-app auth service; lengths measured with len(token.encode(\"utf-8\")) and len(token)",
+  "samples": [
+    {
+      "sample_index": 1,
+      "issued_at_utc": "2026-03-21T10:17:28.963600+00:00",
+      "sha256": "236da99cb2fcca20a29f52e24ea1af52452a3eac5b59b3ebb49b2ff92fb26af9",
+      "algorithm": "ml-dsa-44",
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "498d595c-cdd9-40d5-98ad-6dce6437b51a",
+      "bytes": 3551,
+      "characters": 3551,
+      "source_signer_reported_token_size_bytes": 3551,
+      "context": {
+        "endpoint": "http://localhost:8001/login",
+        "email": "alice@example.com"
+      }
+    },
+    {
+      "sample_index": 2,
+      "issued_at_utc": "2026-03-21T10:17:29.023725+00:00",
+      "sha256": "b4cf1f15479e173b65ed28bbee13f71fdc491a8975faa637798345746bb30b77",
+      "algorithm": "ml-dsa-44",
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "34a3257c-a53c-499c-b5a3-9b851092ab67",
+      "bytes": 3551,
+      "characters": 3551,
+      "source_signer_reported_token_size_bytes": 3551,
+      "context": {
+        "endpoint": "http://localhost:8001/login",
+        "email": "alice@example.com"
+      }
+    },
+    {
+      "sample_index": 3,
+      "issued_at_utc": "2026-03-21T10:17:29.081547+00:00",
+      "sha256": "7bfef04ee03405959e9b4f73d2f0d002a489a5e5e04eca27d2e02f011e690d0b",
+      "algorithm": "ml-dsa-44",
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "09b1d74a-1692-4495-807c-6fc4d48ce965",
+      "bytes": 3551,
+      "characters": 3551,
+      "source_signer_reported_token_size_bytes": 3551,
+      "context": {
+        "endpoint": "http://localhost:8001/login",
+        "email": "alice@example.com"
+      }
+    },
+    {
+      "sample_index": 4,
+      "issued_at_utc": "2026-03-21T10:17:29.137070+00:00",
+      "sha256": "5861f7cc21f4fbe6e56ec7b27eb7e812dc0f4e75978d3fdd23b0c62cb85074b9",
+      "algorithm": "ml-dsa-44",
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "13b1576d-9035-44ea-b5c9-b8b633da6c00",
+      "bytes": 3551,
+      "characters": 3551,
+      "source_signer_reported_token_size_bytes": 3551,
+      "context": {
+        "endpoint": "http://localhost:8001/login",
+        "email": "alice@example.com"
+      }
+    },
+    {
+      "sample_index": 5,
+      "issued_at_utc": "2026-03-21T10:17:29.205514+00:00",
+      "sha256": "a617de7f1f903134f205c1fd1b92953d9ed939d85bd73c1ade5b133455f16e04",
+      "algorithm": "ml-dsa-44",
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "cfd704f6-0132-42ab-87e3-2cc648820e9e",
+      "bytes": 3551,
+      "characters": 3551,
+      "source_signer_reported_token_size_bytes": 3551,
+      "context": {
+        "endpoint": "http://localhost:8001/login",
+        "email": "alice@example.com"
+      }
+    },
+    {
+      "sample_index": 6,
+      "issued_at_utc": "2026-03-21T10:17:29.278713+00:00",
+      "sha256": "6b1db4a659cc853d4a657ec025c5f3585ba86be3c09c0dd37a0ae4b521ec3293",
+      "algorithm": "ml-dsa-44",
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "f0a9362c-e3f9-438d-ae05-699bd12b6613",
+      "bytes": 3551,
+      "characters": 3551,
+      "source_signer_reported_token_size_bytes": 3551,
+      "context": {
+        "endpoint": "http://localhost:8001/login",
+        "email": "alice@example.com"
+      }
+    },
+    {
+      "sample_index": 7,
+      "issued_at_utc": "2026-03-21T10:17:29.319808+00:00",
+      "sha256": "4f7d030789f368fd1f161e23e6cf70bccf3016e83bc5965e6572638f11abcafe",
+      "algorithm": "ml-dsa-44",
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "ff961e3a-c5d7-42d9-a0a7-aaa1872fc4e9",
+      "bytes": 3551,
+      "characters": 3551,
+      "source_signer_reported_token_size_bytes": 3551,
+      "context": {
+        "endpoint": "http://localhost:8001/login",
+        "email": "alice@example.com"
+      }
+    },
+    {
+      "sample_index": 8,
+      "issued_at_utc": "2026-03-21T10:17:29.404910+00:00",
+      "sha256": "8d183f45d9ddc689e237914a7fa223fb51124e343779b485bfe00deb349c0df2",
+      "algorithm": "ml-dsa-44",
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "3a6226ff-4e99-447e-bff7-226374f17a35",
+      "bytes": 3551,
+      "characters": 3551,
+      "source_signer_reported_token_size_bytes": 3551,
+      "context": {
+        "endpoint": "http://localhost:8001/login",
+        "email": "alice@example.com"
+      }
+    },
+    {
+      "sample_index": 9,
+      "issued_at_utc": "2026-03-21T10:17:29.450266+00:00",
+      "sha256": "0d0b794aa8b31fb54f601d2662b07b9834d830bc472905b29f4747c4e46699f4",
+      "algorithm": "ml-dsa-44",
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "2d6733a9-73f1-4d0d-bdec-3612bec23b65",
+      "bytes": 3551,
+      "characters": 3551,
+      "source_signer_reported_token_size_bytes": 3551,
+      "context": {
+        "endpoint": "http://localhost:8001/login",
+        "email": "alice@example.com"
+      }
+    },
+    {
+      "sample_index": 10,
+      "issued_at_utc": "2026-03-21T10:17:29.511910+00:00",
+      "sha256": "7a6f98abd454c207e66301be16617c016b55104a4deee09f1d9264e40b88c3e3",
+      "algorithm": "ml-dsa-44",
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "f463dd12-feb2-46cc-a52e-82b75a3a1ed5",
+      "bytes": 3551,
+      "characters": 3551,
+      "source_signer_reported_token_size_bytes": 3551,
+      "context": {
+        "endpoint": "http://localhost:8001/login",
+        "email": "alice@example.com"
+      }
+    }
+  ],
+  "summary": {
+    "sample_count": 10,
+    "representative_sample_index": 1,
+    "representative_bytes": 3551,
+    "representative_characters": 3551,
+    "average_bytes": 3551.0,
+    "average_characters": 3551.0,
+    "min_bytes": 3551,
+    "max_bytes": 3551,
+    "algorithm": "ml-dsa-44"
+  }
+}

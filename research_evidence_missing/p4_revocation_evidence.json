@@ -1,0 +1,28 @@
+{
+  "artifact": "p4_revocation_evidence",
+  "source_artifact": "research_evidence_missing/raw/p4_revocation_live.json",
+  "source_measurement_timestamp_utc": "2026-03-21T10:17:29.693893+00:00",
+  "measurement_context": {
+    "issue_endpoint": "http://localhost:8001/login",
+    "validity_check_endpoint": "http://localhost:8001/me",
+    "revoke_endpoint": "http://localhost:8001/logout",
+    "p4_meta_endpoint": "http://localhost:8400/v1/tokens/{jti}"
+  },
+  "measured_values": {
+    "alg": "ml-dsa-44",
+    "kid": "ratHRWiLKZr8phUlq97JWQ",
+    "jti": "7e9ca828-3940-4e66-ad91-60e8caf7758d",
+    "sub": "1",
+    "issue_status": 200,
+    "me_before_revoke_status": 200,
+    "p4_meta_before_revoke_found": true,
+    "p4_meta_before_revoke_revoked": false,
+    "logout_revoke_status": 200,
+    "logout_revoke_result": true,
+    "p4_meta_after_revoke_found": true,
+    "p4_meta_after_revoke_revoked": true,
+    "p4_meta_after_revoke_reason": "jti",
+    "me_after_revoke_status": 401
+  },
+  "extraction_note": "All values were copied from research_evidence_missing/raw/p4_revocation_live.json without alteration."
+}

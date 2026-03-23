@@ -1,0 +1,89 @@
+{
+  "source_type": "live_measurement",
+  "timestamp_utc": "2026-03-21T10:17:29.693893+00:00",
+  "context": {
+    "issue_endpoint": "http://localhost:8001/login",
+    "validity_check_endpoint": "http://localhost:8001/me",
+    "revoke_endpoint": "http://localhost:8001/logout",
+    "p4_meta_endpoint": "http://localhost:8400/v1/tokens/{jti}"
+  },
+  "token": {
+    "sha256": "68ee1686b06238c752c66558f9d2e15fd009baeac0b3e57c0656cd8bbd362a3e",
+    "alg": "ml-dsa-44",
+    "kid": "ratHRWiLKZr8phUlq97JWQ",
+    "jti": "7e9ca828-3940-4e66-ad91-60e8caf7758d",
+    "sub": "1",
+    "iss": "p4-revocation-service"
+  },
+  "steps": {
+    "issued": {
+      "status": 200,
+      "framework_signer": {
+        "alg": "ml-dsa-44",
+        "kid": "ratHRWiLKZr8phUlq97JWQ",
+        "jti": "7e9ca828-3940-4e66-ad91-60e8caf7758d",
+        "token_size_bytes": 3551,
+        "sign_time_ms": 0.36739299991950247
+      }
+    },
+    "me_before_revoke": {
+      "ok": true,
+      "status": 200,
+      "body": {
+        "id": 1,
+        "email": "alice@example.com",
+        "name": "Alice",
+        "role": "member",
+        "address": "742 Evergreen Terrace, Springfield",
+        "phone": "+1 555 0101",
+        "created_at": "2026-03-08T16:08:53.033255+00:00"
+      }
+    },
+    "p4_meta_before_revoke": {
+      "ok": true,
+      "status": 200,
+      "body": {
+        "found": true,
+        "sub": "1",
+        "jti": "7e9ca828-3940-4e66-ad91-60e8caf7758d",
+        "kid": "ratHRWiLKZr8phUlq97JWQ",
+        "alg": "ml-dsa-44",
+        "iss": "p4-revocation-service",
+        "synced_at": "2026-03-21T10:17:29.554194+00:00",
+        "revoked": false,
+        "revocation_reason": null
+      }
+    },
+    "logout_revoke": {
+      "ok": true,
+      "status": 200,
+      "body": {
+        "revoked": true,
+        "jti": "7e9ca828-3940-4e66-ad91-60e8caf7758d"
+      }
+    },
+    "p4_meta_after_revoke": {
+      "ok": true,
+      "status": 200,
+      "body": {
+        "found": true,
+        "sub": "1",
+        "jti": "7e9ca828-3940-4e66-ad91-60e8caf7758d",
+        "kid": "ratHRWiLKZr8phUlq97JWQ",
+        "alg": "ml-dsa-44",
+        "iss": "p4-revocation-service",
+        "synced_at": "2026-03-21T10:17:29.554194+00:00",
+        "revoked": true,
+        "revocation_reason": "jti"
+      }
+    },
+    "me_after_revoke": {
+      "ok": false,
+      "status": 401,
+      "body": {
+        "detail": "Invalid token"
+      },
+      "error": "HTTP 401"
+    }
+  }
+}

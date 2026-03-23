@@ -1,0 +1,1943 @@
+{
+  "source_type": "live_measurement",
+  "timestamp_utc": "2026-03-21T10:17:28.917982+00:00",
+  "context": {
+    "description": "Integrated PQC web-app benchmark against live endpoints",
+    "auth_login_url": "http://localhost:8001/login",
+    "auth_me_url": "http://localhost:8001/me",
+    "cart_url": "http://localhost:8003/cart",
+    "auth_logout_url": "http://localhost:8001/logout",
+    "warmup_iterations_excluded": 2,
+    "vus": 5,
+    "iterations_per_vu": 10,
+    "total_iterations": 50,
+    "login_identity": "alice@example.com"
+  },
+  "summary": {
+    "login": {
+      "count": 50,
+      "successes": 50,
+      "failures": 0,
+      "avg_ms": 83.481,
+      "min_ms": 59.76,
+      "max_ms": 121.447,
+      "p50_ms": 82.763,
+      "p95_ms": 102.453,
+      "p99_ms": 115.765,
+      "token_size_avg_bytes": 3551.0,
+      "token_size_min_bytes": 3551,
+      "token_size_max_bytes": 3551,
+      "token_size_avg_characters": 3551.0,
+      "token_size_min_characters": 3551,
+      "token_size_max_characters": 3551
+    },
+    "me": {
+      "count": 50,
+      "successes": 50,
+      "failures": 0,
+      "avg_ms": 43.448,
+      "min_ms": 26.548,
+      "max_ms": 66.39,
+      "p50_ms": 45.09,
+      "p95_ms": 57.907,
+      "p99_ms": 63.215
+    },
+    "cart": {
+      "count": 50,
+      "successes": 50,
+      "failures": 0,
+      "avg_ms": 72.673,
+      "min_ms": 37.173,
+      "max_ms": 115.022,
+      "p50_ms": 71.754,
+      "p95_ms": 101.62,
+      "p99_ms": 112.105
+    },
+    "logout": {
+      "count": 50,
+      "successes": 50,
+      "failures": 0,
+      "avg_ms": 69.378,
+      "min_ms": 42.182,
+      "max_ms": 101.623,
+      "p50_ms": 65.873,
+      "p95_ms": 89.872,
+      "p99_ms": 100.747
+    },
+    "overall_request_latency": {
+      "avg_ms": 67.245,
+      "min_ms": 26.548,
+      "max_ms": 121.447,
+      "p50_ms": 67.248,
+      "p95_ms": 97.667,
+      "p99_ms": 109.904
+    },
+    "overall_iteration_latency": {
+      "avg_ms": 269.401,
+      "min_ms": 206.308,
+      "max_ms": 343.871,
+      "p50_ms": 262.357,
+      "p95_ms": 334.455,
+      "p99_ms": 343.52
+    },
+    "throughput_requests_per_second": 71.943,
+    "throughput_iterations_per_second": 17.986,
+    "failure_rate": 0.0,
+    "request_successes": 200,
+    "request_failures": 0,
+    "total_requests": 200,
+    "wall_time_seconds": 2.78
+  },
+  "iterations": [
+    {
+      "vu": 1,
+      "iteration": 1,
+      "started_at_utc": "2026-03-21T10:17:26.227137+00:00",
+      "steps": {
+        "login": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 88.59,
+          "error": null,
+          "token_size_bytes": 3551,
+          "token_size_characters": 3551
+        },
+        "me": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 45.335,
+          "error": null
+        },
+        "cart": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 76.606,
+          "error": null
+        },
+        "logout": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 56.441,
+          "error": null
+        }
+      },
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "dc7e9468-90b0-4595-abcd-04f16779ec39",
+      "scenario_ok": true,
+      "scenario_latency_ms": 267.365
+    },
+    {
+      "vu": 1,
+      "iteration": 2,
+      "started_at_utc": "2026-03-21T10:17:26.233019+00:00",
+      "steps": {
+        "login": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 94.05,
+          "error": null,
+          "token_size_bytes": 3551,
+          "token_size_characters": 3551
+        },
+        "me": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 33.61,
+          "error": null
+        },
+        "cart": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 97.619,
+          "error": null
+        },
+        "logout": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 90.69,
+          "error": null
+        }
+      },
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "898281d5-12a5-4649-a558-69f6794006ac",
+      "scenario_ok": true,
+      "scenario_latency_ms": 316.438
+    },
+    {
+      "vu": 1,
+      "iteration": 3,
+      "started_at_utc": "2026-03-21T10:17:26.222126+00:00",
+      "steps": {
+        "login": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 82.817,
+          "error": null,
+          "token_size_bytes": 3551,
+          "token_size_characters": 3551
+        },
+        "me": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 30.69,
+          "error": null
+        },
+        "cart": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 64.586,
+          "error": null
+        },
+        "logout": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 52.457,
+          "error": null
+        }
+      },
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "79aace20-4701-439c-8cd6-16db718a8b98",
+      "scenario_ok": true,
+      "scenario_latency_ms": 231.036
+    },
+    {
+      "vu": 1,
+      "iteration": 4,
+      "started_at_utc": "2026-03-21T10:17:26.234203+00:00",
+      "steps": {
+        "login": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 94.505,
+          "error": null,
+          "token_size_bytes": 3551,
+          "token_size_characters": 3551
+        },
+        "me": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 49.681,
+          "error": null
+        },
+        "cart": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 81.723,
+          "error": null
+        },
+        "logout": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 88.387,
+          "error": null
+        }
+      },
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "dcec5784-6907-4883-a472-e7a2f3c0ef50",
+      "scenario_ok": true,
+      "scenario_latency_ms": 314.786
+    },
+    {
+      "vu": 1,
+      "iteration": 5,
+      "started_at_utc": "2026-03-21T10:17:26.231645+00:00",
+      "steps": {
+        "login": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 91.732,
+          "error": null,
+          "token_size_bytes": 3551,
+          "token_size_characters": 3551
+        },
+        "me": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 53.933,
+          "error": null
+        },
+        "cart": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 80.726,
+          "error": null
+        },
+        "logout": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 86.869,
+          "error": null
+        }
+      },
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "692cba6b-87d4-407f-af04-5995f6be5b51",
+      "scenario_ok": true,
+      "scenario_latency_ms": 313.736
+    },
+    {
+      "vu": 1,
+      "iteration": 6,
+      "started_at_utc": "2026-03-21T10:17:26.468967+00:00",
+      "steps": {
+        "login": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 98.577,
+          "error": null,
+          "token_size_bytes": 3551,
+          "token_size_characters": 3551
+        },
+        "me": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 54.553,
+          "error": null
+        },
+        "cart": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 64.963,
+          "error": null
+        },
+        "logout": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 56.89,
+          "error": null
+        }
+      },
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "7c7d3a92-5eaf-4bcd-b32d-e9d38edebc9f",
+      "scenario_ok": true,
+      "scenario_latency_ms": 275.381
+    },
+    {
+      "vu": 1,
+      "iteration": 7,
+      "started_at_utc": "2026-03-21T10:17:26.494353+00:00",
+      "steps": {
+        "login": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 88.389,
+          "error": null,
+          "token_size_bytes": 3551,
+          "token_size_characters": 3551
+        },
+        "me": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 55.521,
+          "error": null
+        },
+        "cart": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 109.068,
+          "error": null
+        },
+        "logout": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 73.054,
+          "error": null
+        }
+      },
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "9307c542-258c-4880-b705-61cb3499e68e",
+      "scenario_ok": true,
+      "scenario_latency_ms": 326.495
+    },
+    {
+      "vu": 1,
+      "iteration": 8,
+      "started_at_utc": "2026-03-21T10:17:26.559246+00:00",
+      "steps": {
+        "login": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 105.457,
+          "error": null,
+          "token_size_bytes": 3551,
+          "token_size_characters": 3551
+        },
+        "me": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 53.547,
+          "error": null
+        },
+        "cart": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 96.09,
+          "error": null
+        },
+        "logout": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 87.634,
+          "error": null
+        }
+      },
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "cb78f5c3-56dd-4fc7-85c2-24ab9a5aac0a",
+      "scenario_ok": true,
+      "scenario_latency_ms": 343.155
+    },
+    {
+      "vu": 1,
+      "iteration": 9,
+      "started_at_utc": "2026-03-21T10:17:26.564379+00:00",
+      "steps": {
+        "login": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 109.852,
+          "error": null,
+          "token_size_bytes": 3551,
+          "token_size_characters": 3551
+        },
+        "me": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 49.701,
+          "error": null
+        },
+        "cart": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 95.589,
+          "error": null
+        },
+        "logout": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 88.322,
+          "error": null
+        }
+      },
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "c084b932-f64d-4663-9ceb-dea0f43219a2",
+      "scenario_ok": true,
+      "scenario_latency_ms": 343.871
+    },
+    {
+      "vu": 1,
+      "iteration": 10,
+      "started_at_utc": "2026-03-21T10:17:26.547442+00:00",
+      "steps": {
+        "login": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 91.97,
+          "error": null,
+          "token_size_bytes": 3551,
+          "token_size_characters": 3551
+        },
+        "me": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 44.246,
+          "error": null
+        },
+        "cart": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 115.022,
+          "error": null
+        },
+        "logout": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 88.873,
+          "error": null
+        }
+      },
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "b57c2b47-1b81-4b4f-8141-7532c14ddf10",
+      "scenario_ok": true,
+      "scenario_latency_ms": 340.559
+    },
+    {
+      "vu": 2,
+      "iteration": 1,
+      "started_at_utc": "2026-03-21T10:17:26.710394+00:00",
+      "steps": {
+        "login": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 64.611,
+          "error": null,
+          "token_size_bytes": 3551,
+          "token_size_characters": 3551
+        },
+        "me": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 58.383,
+          "error": null
+        },
+        "cart": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 49.574,
+          "error": null
+        },
+        "logout": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 86.46,
+          "error": null
+        }
+      },
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "6d15370b-5423-4213-91bd-a833430ed1f0",
+      "scenario_ok": true,
+      "scenario_latency_ms": 259.432
+    },
+    {
+      "vu": 2,
+      "iteration": 2,
+      "started_at_utc": "2026-03-21T10:17:26.811184+00:00",
+      "steps": {
+        "login": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 78.727,
+          "error": null,
+          "token_size_bytes": 3551,
+          "token_size_characters": 3551
+        },
+        "me": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 44.103,
+          "error": null
+        },
+        "cart": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 85.555,
+          "error": null
+        },
+        "logout": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 48.609,
+          "error": null
+        }
+      },
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "14c57319-6bf0-4dd6-8361-ad2759fefd04",
+      "scenario_ok": true,
+      "scenario_latency_ms": 257.376
+    },
+    {
+      "vu": 2,
+      "iteration": 3,
+      "started_at_utc": "2026-03-21T10:17:26.866902+00:00",
+      "steps": {
+        "login": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 70.813,
+          "error": null,
+          "token_size_bytes": 3551,
+          "token_size_characters": 3551
+        },
+        "me": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 45.93,
+          "error": null
+        },
+        "cart": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 77.115,
+          "error": null
+        },
+        "logout": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 101.623,
+          "error": null
+        }
+      },
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "bba5d7a8-0f46-4bf2-924c-a6326f28517f",
+      "scenario_ok": true,
+      "scenario_latency_ms": 295.915
+    },
+    {
+      "vu": 2,
+      "iteration": 4,
+      "started_at_utc": "2026-03-21T10:17:26.883936+00:00",
+      "steps": {
+        "login": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 87.019,
+          "error": null,
+          "token_size_bytes": 3551,
+          "token_size_characters": 3551
+        },
+        "me": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 52.33,
+          "error": null
+        },
+        "cart": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 54.825,
+          "error": null
+        },
+        "logout": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 99.836,
+          "error": null
+        }
+      },
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "9bf417a6-5f24-4c7a-aeb8-49fb6e10a009",
+      "scenario_ok": true,
+      "scenario_latency_ms": 294.405
+    },
+    {
+      "vu": 2,
+      "iteration": 5,
+      "started_at_utc": "2026-03-21T10:17:26.867462+00:00",
+      "steps": {
+        "login": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 69.013,
+          "error": null,
+          "token_size_bytes": 3551,
+          "token_size_characters": 3551
+        },
+        "me": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 47.691,
+          "error": null
+        },
+        "cart": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 75.264,
+          "error": null
+        },
+        "logout": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 53.66,
+          "error": null
+        }
+      },
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "e8bafc40-cb18-4b94-9b8d-e876b6bd7c4c",
+      "scenario_ok": true,
+      "scenario_latency_ms": 246.03
+    },
+    {
+      "vu": 2,
+      "iteration": 6,
+      "started_at_utc": "2026-03-21T10:17:26.981437+00:00",
+      "steps": {
+        "login": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 76.203,
+          "error": null,
+          "token_size_bytes": 3551,
+          "token_size_characters": 3551
+        },
+        "me": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 45.559,
+          "error": null
+        },
+        "cart": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 78.109,
+          "error": null
+        },
+        "logout": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 81.393,
+          "error": null
+        }
+      },
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "a28930b6-bff7-40aa-bd86-1c8dd4db4d83",
+      "scenario_ok": true,
+      "scenario_latency_ms": 281.677
+    },
+    {
+      "vu": 2,
+      "iteration": 7,
+      "started_at_utc": "2026-03-21T10:17:27.066572+00:00",
+      "steps": {
+        "login": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 76.714,
+          "error": null,
+          "token_size_bytes": 3551,
+          "token_size_characters": 3551
+        },
+        "me": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 39.867,
+          "error": null
+        },
+        "cart": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 64.829,
+          "error": null
+        },
+        "logout": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 77.037,
+          "error": null
+        }
+      },
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "b24572e8-03c6-4a1e-ac6b-44a263f843fd",
+      "scenario_ok": true,
+      "scenario_latency_ms": 258.883
+    },
+    {
+      "vu": 2,
+      "iteration": 8,
+      "started_at_utc": "2026-03-21T10:17:27.165975+00:00",
+      "steps": {
+        "login": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 121.447,
+          "error": null,
+          "token_size_bytes": 3551,
+          "token_size_characters": 3551
+        },
+        "me": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 66.39,
+          "error": null
+        },
+        "cart": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 75.493,
+          "error": null
+        },
+        "logout": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 63.335,
+          "error": null
+        }
+      },
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "5f5577d4-95d0-48c7-8cbf-41d5317020a5",
+      "scenario_ok": true,
+      "scenario_latency_ms": 326.994
+    },
+    {
+      "vu": 2,
+      "iteration": 9,
+      "started_at_utc": "2026-03-21T10:17:27.190128+00:00",
+      "steps": {
+        "login": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 98.781,
+          "error": null,
+          "token_size_bytes": 3551,
+          "token_size_characters": 3551
+        },
+        "me": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 41.432,
+          "error": null
+        },
+        "cart": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 74.354,
+          "error": null
+        },
+        "logout": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 65.83,
+          "error": null
+        }
+      },
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "0279cade-9c48-4e3d-8371-45ae81588cc5",
+      "scenario_ok": true,
+      "scenario_latency_ms": 280.749
+    },
+    {
+      "vu": 2,
+      "iteration": 10,
+      "started_at_utc": "2026-03-21T10:17:27.189624+00:00",
+      "steps": {
+        "login": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 97.562,
+          "error": null,
+          "token_size_bytes": 3551,
+          "token_size_characters": 3551
+        },
+        "me": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 47.28,
+          "error": null
+        },
+        "cart": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 70.179,
+          "error": null
+        },
+        "logout": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 87.564,
+          "error": null
+        }
+      },
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "3430127c-953f-4907-b240-d768f927ec31",
+      "scenario_ok": true,
+      "scenario_latency_ms": 303.146
+    },
+    {
+      "vu": 3,
+      "iteration": 1,
+      "started_at_utc": "2026-03-21T10:17:27.252111+00:00",
+      "steps": {
+        "login": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 65.166,
+          "error": null,
+          "token_size_bytes": 3551,
+          "token_size_characters": 3551
+        },
+        "me": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 53.68,
+          "error": null
+        },
+        "cart": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 48.391,
+          "error": null
+        },
+        "logout": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 82.417,
+          "error": null
+        }
+      },
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "bcbd711c-544f-4a1e-b203-aa2b501874a7",
+      "scenario_ok": true,
+      "scenario_latency_ms": 250.021
+    },
+    {
+      "vu": 3,
+      "iteration": 2,
+      "started_at_utc": "2026-03-21T10:17:27.321705+00:00",
+      "steps": {
+        "login": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 72.91,
+          "error": null,
+          "token_size_bytes": 3551,
+          "token_size_characters": 3551
+        },
+        "me": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 50.835,
+          "error": null
+        },
+        "cart": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 54.566,
+          "error": null
+        },
+        "logout": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 63.347,
+          "error": null
+        }
+      },
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "fda8d7b3-c248-45ea-a308-219d30230365",
+      "scenario_ok": true,
+      "scenario_latency_ms": 242.072
+    },
+    {
+      "vu": 3,
+      "iteration": 3,
+      "started_at_utc": "2026-03-21T10:17:27.455364+00:00",
+      "steps": {
+        "login": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 83.795,
+          "error": null,
+          "token_size_bytes": 3551,
+          "token_size_characters": 3551
+        },
+        "me": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 49.759,
+          "error": null
+        },
+        "cart": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 88.779,
+          "error": null
+        },
+        "logout": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 61.093,
+          "error": null
+        }
+      },
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "1efe6024-6e2d-464b-ba6c-08f6a1e472fd",
+      "scenario_ok": true,
+      "scenario_latency_ms": 283.831
+    },
+    {
+      "vu": 3,
+      "iteration": 4,
+      "started_at_utc": "2026-03-21T10:17:27.454166+00:00",
+      "steps": {
+        "login": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 82.019,
+          "error": null,
+          "token_size_bytes": 3551,
+          "token_size_characters": 3551
+        },
+        "me": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 51.897,
+          "error": null
+        },
+        "cart": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 89.661,
+          "error": null
+        },
+        "logout": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 59.872,
+          "error": null
+        }
+      },
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "7b48377b-c766-4a6a-90e6-071f2270e508",
+      "scenario_ok": true,
+      "scenario_latency_ms": 283.827
+    },
+    {
+      "vu": 3,
+      "iteration": 5,
+      "started_at_utc": "2026-03-21T10:17:27.492069+00:00",
+      "steps": {
+        "login": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 96.801,
+          "error": null,
+          "token_size_bytes": 3551,
+          "token_size_characters": 3551
+        },
+        "me": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 34.438,
+          "error": null
+        },
+        "cart": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 68.413,
+          "error": null
+        },
+        "logout": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 84.295,
+          "error": null
+        }
+      },
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "27612355-2f7f-405e-98ac-fc3e474671f8",
+      "scenario_ok": true,
+      "scenario_latency_ms": 284.403
+    },
+    {
+      "vu": 3,
+      "iteration": 6,
+      "started_at_utc": "2026-03-21T10:17:27.516065+00:00",
+      "steps": {
+        "login": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 79.027,
+          "error": null,
+          "token_size_bytes": 3551,
+          "token_size_characters": 3551
+        },
+        "me": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 37.036,
+          "error": null
+        },
+        "cart": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 70.535,
+          "error": null
+        },
+        "logout": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 55.803,
+          "error": null
+        }
+      },
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "de9f291d-1107-48be-a0d7-aa7ccc0992eb",
+      "scenario_ok": true,
+      "scenario_latency_ms": 242.79
+    },
+    {
+      "vu": 3,
+      "iteration": 7,
+      "started_at_utc": "2026-03-21T10:17:27.581423+00:00",
+      "steps": {
+        "login": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 90.509,
+          "error": null,
+          "token_size_bytes": 3551,
+          "token_size_characters": 3551
+        },
+        "me": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 47.032,
+          "error": null
+        },
+        "cart": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 42.22,
+          "error": null
+        },
+        "logout": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 68.457,
+          "error": null
+        }
+      },
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "2abbb8c1-9739-43ec-89e8-556598aed1ec",
+      "scenario_ok": true,
+      "scenario_latency_ms": 248.609
+    },
+    {
+      "vu": 3,
+      "iteration": 8,
+      "started_at_utc": "2026-03-21T10:17:27.739976+00:00",
+      "steps": {
+        "login": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 84.594,
+          "error": null,
+          "token_size_bytes": 3551,
+          "token_size_characters": 3551
+        },
+        "me": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 39.079,
+          "error": null
+        },
+        "cart": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 69.777,
+          "error": null
+        },
+        "logout": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 52.576,
+          "error": null
+        }
+      },
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "6eacc94f-9a89-4dfa-aec9-9d1c1410a3c6",
+      "scenario_ok": true,
+      "scenario_latency_ms": 246.358
+    },
+    {
+      "vu": 3,
+      "iteration": 9,
+      "started_at_utc": "2026-03-21T10:17:27.730999+00:00",
+      "steps": {
+        "login": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 74.986,
+          "error": null,
+          "token_size_bytes": 3551,
+          "token_size_characters": 3551
+        },
+        "me": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 45.996,
+          "error": null
+        },
+        "cart": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 72.972,
+          "error": null
+        },
+        "logout": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 74.837,
+          "error": null
+        }
+      },
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "3a69e430-1ff5-4aa4-afde-6f53ce72ae07",
+      "scenario_ok": true,
+      "scenario_latency_ms": 269.155
+    },
+    {
+      "vu": 3,
+      "iteration": 10,
+      "started_at_utc": "2026-03-21T10:17:27.774275+00:00",
+      "steps": {
+        "login": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 94.65,
+          "error": null,
+          "token_size_bytes": 3551,
+          "token_size_characters": 3551
+        },
+        "me": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 57.326,
+          "error": null
+        },
+        "cart": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 81.433,
+          "error": null
+        },
+        "logout": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 72.612,
+          "error": null
+        }
+      },
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "bed4cfa0-b554-4ac2-b555-43bda827d05c",
+      "scenario_ok": true,
+      "scenario_latency_ms": 306.502
+    },
+    {
+      "vu": 4,
+      "iteration": 1,
+      "started_at_utc": "2026-03-21T10:17:27.756341+00:00",
+      "steps": {
+        "login": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 76.522,
+          "error": null,
+          "token_size_bytes": 3551,
+          "token_size_characters": 3551
+        },
+        "me": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 37.667,
+          "error": null
+        },
+        "cart": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 83.143,
+          "error": null
+        },
+        "logout": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 60.447,
+          "error": null
+        }
+      },
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "8e1c9e50-e9b0-49ec-b7f1-559fc737b147",
+      "scenario_ok": true,
+      "scenario_latency_ms": 258.184
+    },
+    {
+      "vu": 4,
+      "iteration": 2,
+      "started_at_utc": "2026-03-21T10:17:27.812875+00:00",
+      "steps": {
+        "login": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 73.345,
+          "error": null,
+          "token_size_bytes": 3551,
+          "token_size_characters": 3551
+        },
+        "me": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 35.501,
+          "error": null
+        },
+        "cart": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 63.957,
+          "error": null
+        },
+        "logout": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 53.812,
+          "error": null
+        }
+      },
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "c26e971d-d0b8-43f2-a1ec-003b6750303e",
+      "scenario_ok": true,
+      "scenario_latency_ms": 227.004
+    },
+    {
+      "vu": 4,
+      "iteration": 3,
+      "started_at_utc": "2026-03-21T10:17:27.976146+00:00",
+      "steps": {
+        "login": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 74.309,
+          "error": null,
+          "token_size_bytes": 3551,
+          "token_size_characters": 3551
+        },
+        "me": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 49.649,
+          "error": null
+        },
+        "cart": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 96.758,
+          "error": null
+        },
+        "logout": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 65.915,
+          "error": null
+        }
+      },
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "7d928328-e1cf-4eb0-b2b1-1e99e65750e3",
+      "scenario_ok": true,
+      "scenario_latency_ms": 287.089
+    },
+    {
+      "vu": 4,
+      "iteration": 4,
+      "started_at_utc": "2026-03-21T10:17:27.999110+00:00",
+      "steps": {
+        "login": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 73.946,
+          "error": null,
+          "token_size_bytes": 3551,
+          "token_size_characters": 3551
+        },
+        "me": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 59.91,
+          "error": null
+        },
+        "cart": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 64.865,
+          "error": null
+        },
+        "logout": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 65.247,
+          "error": null
+        }
+      },
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "409fd4f0-c2e0-405e-b37b-279e938d370f",
+      "scenario_ok": true,
+      "scenario_latency_ms": 264.4
+    },
+    {
+      "vu": 4,
+      "iteration": 5,
+      "started_at_utc": "2026-03-21T10:17:28.030819+00:00",
+      "steps": {
+        "login": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 92.668,
+          "error": null,
+          "token_size_bytes": 3551,
+          "token_size_characters": 3551
+        },
+        "me": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 49.866,
+          "error": null
+        },
+        "cart": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 88.349,
+          "error": null
+        },
+        "logout": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 77.207,
+          "error": null
+        }
+      },
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "1c9c0455-2840-44cc-963c-c59fb6411a5c",
+      "scenario_ok": true,
+      "scenario_latency_ms": 308.49
+    },
+    {
+      "vu": 4,
+      "iteration": 6,
+      "started_at_utc": "2026-03-21T10:17:28.036187+00:00",
+      "steps": {
+        "login": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 69.618,
+          "error": null,
+          "token_size_bytes": 3551,
+          "token_size_characters": 3551
+        },
+        "me": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 35.806,
+          "error": null
+        },
+        "cart": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 96.496,
+          "error": null
+        },
+        "logout": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 78.256,
+          "error": null
+        }
+      },
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "015f8de4-7b23-4d96-ada8-febc32bb2c88",
+      "scenario_ok": true,
+      "scenario_latency_ms": 280.563
+    },
+    {
+      "vu": 4,
+      "iteration": 7,
+      "started_at_utc": "2026-03-21T10:17:28.073492+00:00",
+      "steps": {
+        "login": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 87.305,
+          "error": null,
+          "token_size_bytes": 3551,
+          "token_size_characters": 3551
+        },
+        "me": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 33.525,
+          "error": null
+        },
+        "cart": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 59.982,
+          "error": null
+        },
+        "logout": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 52.202,
+          "error": null
+        }
+      },
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "a15dd0ab-b3a2-4662-b2e8-1e528df5f644",
+      "scenario_ok": true,
+      "scenario_latency_ms": 233.494
+    },
+    {
+      "vu": 4,
+      "iteration": 8,
+      "started_at_utc": "2026-03-21T10:17:28.269514+00:00",
+      "steps": {
+        "login": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 80.563,
+          "error": null,
+          "token_size_bytes": 3551,
+          "token_size_characters": 3551
+        },
+        "me": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 40.609,
+          "error": null
+        },
+        "cart": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 37.173,
+          "error": null
+        },
+        "logout": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 66.73,
+          "error": null
+        }
+      },
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "1a993bce-b108-4cae-8fac-52bdd582aa5b",
+      "scenario_ok": true,
+      "scenario_latency_ms": 225.526
+    },
+    {
+      "vu": 4,
+      "iteration": 9,
+      "started_at_utc": "2026-03-21T10:17:28.271251+00:00",
+      "steps": {
+        "login": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 81.691,
+          "error": null,
+          "token_size_bytes": 3551,
+          "token_size_characters": 3551
+        },
+        "me": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 33.004,
+          "error": null
+        },
+        "cart": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 78.535,
+          "error": null
+        },
+        "logout": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 49.358,
+          "error": null
+        }
+      },
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "c703c23b-ff42-40f1-9707-72ed07b5d50a",
+      "scenario_ok": true,
+      "scenario_latency_ms": 242.863
+    },
+    {
+      "vu": 4,
+      "iteration": 10,
+      "started_at_utc": "2026-03-21T10:17:28.279466+00:00",
+      "steps": {
+        "login": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 59.76,
+          "error": null,
+          "token_size_bytes": 3551,
+          "token_size_characters": 3551
+        },
+        "me": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 44.844,
+          "error": null
+        },
+        "cart": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 104.894,
+          "error": null
+        },
+        "logout": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 74.121,
+          "error": null
+        }
+      },
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "49bd1c65-6236-4c18-b0f1-05c36384d9fa",
+      "scenario_ok": true,
+      "scenario_latency_ms": 283.951
+    },
+    {
+      "vu": 5,
+      "iteration": 1,
+      "started_at_utc": "2026-03-21T10:17:28.331139+00:00",
+      "steps": {
+        "login": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 84.571,
+          "error": null,
+          "token_size_bytes": 3551,
+          "token_size_characters": 3551
+        },
+        "me": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 49.572,
+          "error": null
+        },
+        "cart": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 47.921,
+          "error": null
+        },
+        "logout": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 63.353,
+          "error": null
+        }
+      },
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "13fea5b1-f816-4b4b-95a0-c657e54e09c1",
+      "scenario_ok": true,
+      "scenario_latency_ms": 245.737
+    },
+    {
+      "vu": 5,
+      "iteration": 2,
+      "started_at_utc": "2026-03-21T10:17:28.329843+00:00",
+      "steps": {
+        "login": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 82.709,
+          "error": null,
+          "token_size_bytes": 3551,
+          "token_size_characters": 3551
+        },
+        "me": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 29.132,
+          "error": null
+        },
+        "cart": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 68.323,
+          "error": null
+        },
+        "logout": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 65.221,
+          "error": null
+        }
+      },
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "5977bff6-abff-4565-88e7-28b25fd15f45",
+      "scenario_ok": true,
+      "scenario_latency_ms": 245.842
+    },
+    {
+      "vu": 5,
+      "iteration": 3,
+      "started_at_utc": "2026-03-21T10:17:28.511532+00:00",
+      "steps": {
+        "login": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 97.082,
+          "error": null,
+          "token_size_bytes": 3551,
+          "token_size_characters": 3551
+        },
+        "me": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 35.511,
+          "error": null
+        },
+        "cart": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 61.651,
+          "error": null
+        },
+        "logout": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 65.706,
+          "error": null
+        }
+      },
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "7aee9bc4-f70a-4b9c-9bdf-731a7f0bea8c",
+      "scenario_ok": true,
+      "scenario_latency_ms": 260.314
+    },
+    {
+      "vu": 5,
+      "iteration": 4,
+      "started_at_utc": "2026-03-21T10:17:28.510452+00:00",
+      "steps": {
+        "login": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 77.916,
+          "error": null,
+          "token_size_bytes": 3551,
+          "token_size_characters": 3551
+        },
+        "me": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 36.73,
+          "error": null
+        },
+        "cart": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 61.106,
+          "error": null
+        },
+        "logout": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 63.411,
+          "error": null
+        }
+      },
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "02e212bf-1a4b-4305-99b3-9a10b1c2b1f7",
+      "scenario_ok": true,
+      "scenario_latency_ms": 239.829
+    },
+    {
+      "vu": 5,
+      "iteration": 5,
+      "started_at_utc": "2026-03-21T10:17:28.562577+00:00",
+      "steps": {
+        "login": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 70.198,
+          "error": null,
+          "token_size_bytes": 3551,
+          "token_size_characters": 3551
+        },
+        "me": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 26.902,
+          "error": null
+        },
+        "cart": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 43.098,
+          "error": null
+        },
+        "logout": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 77.975,
+          "error": null
+        }
+      },
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "6bed3a6a-9763-4ecd-b3d3-0f5b18fe28c5",
+      "scenario_ok": true,
+      "scenario_latency_ms": 218.583
+    },
+    {
+      "vu": 5,
+      "iteration": 6,
+      "started_at_utc": "2026-03-21T10:17:28.561487+00:00",
+      "steps": {
+        "login": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 68.443,
+          "error": null,
+          "token_size_bytes": 3551,
+          "token_size_characters": 3551
+        },
+        "me": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 37.656,
+          "error": null
+        },
+        "cart": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 55.682,
+          "error": null
+        },
+        "logout": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 57.518,
+          "error": null
+        }
+      },
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "dc947c55-8326-42db-97e6-3550c7a206b0",
+      "scenario_ok": true,
+      "scenario_latency_ms": 219.743
+    },
+    {
+      "vu": 5,
+      "iteration": 7,
+      "started_at_utc": "2026-03-21T10:17:28.587481+00:00",
+      "steps": {
+        "login": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 83.703,
+          "error": null,
+          "token_size_bytes": 3551,
+          "token_size_characters": 3551
+        },
+        "me": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 26.548,
+          "error": null
+        },
+        "cart": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 73.277,
+          "error": null
+        },
+        "logout": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 50.232,
+          "error": null
+        }
+      },
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "3085e90e-dfeb-495a-916b-c7c747637a8f",
+      "scenario_ok": true,
+      "scenario_latency_ms": 234.233
+    },
+    {
+      "vu": 5,
+      "iteration": 8,
+      "started_at_utc": "2026-03-21T10:17:28.748711+00:00",
+      "steps": {
+        "login": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 76.319,
+          "error": null,
+          "token_size_bytes": 3551,
+          "token_size_characters": 3551
+        },
+        "me": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 28.414,
+          "error": null
+        },
+        "cart": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 50.569,
+          "error": null
+        },
+        "logout": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 71.585,
+          "error": null
+        }
+      },
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "4abf0d12-7c09-40bd-88e9-c26f4642e4ca",
+      "scenario_ok": true,
+      "scenario_latency_ms": 227.345
+    },
+    {
+      "vu": 5,
+      "iteration": 9,
+      "started_at_utc": "2026-03-21T10:17:28.762343+00:00",
+      "steps": {
+        "login": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 87.471,
+          "error": null,
+          "token_size_bytes": 3551,
+          "token_size_characters": 3551
+        },
+        "me": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 27.677,
+          "error": null
+        },
+        "cart": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 67.766,
+          "error": null
+        },
+        "logout": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 42.182,
+          "error": null
+        }
+      },
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "568a0d0b-6e42-4e05-a61b-8abac46d191d",
+      "scenario_ok": true,
+      "scenario_latency_ms": 225.576
+    },
+    {
+      "vu": 5,
+      "iteration": 10,
+      "started_at_utc": "2026-03-21T10:17:28.775643+00:00",
+      "steps": {
+        "login": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 64.631,
+          "error": null,
+          "token_size_bytes": 3551,
+          "token_size_characters": 3551
+        },
+        "me": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 27.039,
+          "error": null
+        },
+        "cart": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 56.081,
+          "error": null
+        },
+        "logout": {
+          "ok": true,
+          "status": 200,
+          "latency_ms": 58.163,
+          "error": null
+        }
+      },
+      "kid": "ratHRWiLKZr8phUlq97JWQ",
+      "jti": "9daab647-3fd6-4894-ab9f-f78f088e3933",
+      "scenario_ok": true,
+      "scenario_latency_ms": 206.308
+    }
+  ]
+}

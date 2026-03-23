@@ -1,0 +1,39 @@
+{
+  "artifact": "pqc_benchmark_artifact",
+  "source_artifact": "research_evidence_missing/raw/pqc_benchmark_live.json",
+  "source_measurement_timestamp_utc": "2026-03-21T10:17:28.917982+00:00",
+  "measurement_context": {
+    "description": "Integrated PQC web-app benchmark against live endpoints",
+    "auth_login_url": "http://localhost:8001/login",
+    "auth_me_url": "http://localhost:8001/me",
+    "cart_url": "http://localhost:8003/cart",
+    "auth_logout_url": "http://localhost:8001/logout",
+    "warmup_iterations_excluded": 2,
+    "vus": 5,
+    "iterations_per_vu": 10,
+    "total_iterations": 50,
+    "total_requests": 200,
+    "login_identity": "alice@example.com"
+  },
+  "measured_values": {
+    "login_latency_avg_ms": 83.481,
+    "login_latency_p95_ms": 102.453,
+    "me_profile_latency_avg_ms": 43.448,
+    "me_profile_latency_p95_ms": 57.907,
+    "cart_latency_avg_ms": 72.673,
+    "cart_latency_p95_ms": 101.62,
+    "logout_latency_avg_ms": 69.378,
+    "logout_latency_p95_ms": 89.872,
+    "overall_request_latency_avg_ms": 67.245,
+    "overall_request_latency_p95_ms": 97.667,
+    "overall_iteration_latency_avg_ms": 269.401,
+    "overall_iteration_latency_p95_ms": 334.455,
+    "throughput_requests_per_second": 71.943,
+    "throughput_iterations_per_second": 17.986,
+    "failure_rate": 0.0,
+    "request_successes": 200,
+    "request_failures": 0,
+    "wall_time_seconds": 2.78
+  },
+  "extraction_note": "All values were copied from research_evidence_missing/raw/pqc_benchmark_live.json summary fields without re-scaling."
+}
