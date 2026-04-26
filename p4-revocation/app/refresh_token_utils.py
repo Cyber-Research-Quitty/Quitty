@@ -1,11 +1,16 @@
 """
 Refresh Token Utilities with Client Binding and Kyber Forward Secrecy
 """
+import base64
+import json
 import jwt
 import uuid
 import secrets
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, Any, Tuple
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from fastapi import HTTPException, status
 
 from .config import (
@@ -14,7 +19,43 @@ from .config import (
     JWT_REFRESH_TOKEN_EXPIRE_DAYS,
     JWT_ISSUER
 )
-from .pqc_crypto import encapsulate_kyber_secret, hash_client_binding
+from .pqc_crypto import (
+    encapsulate_kyber_secret,
+    decapsulate_kyber_secret,
+    hash_client_binding,
+)
+
+
+REFRESH_RESPONSE_AAD = b"p4-refresh-response/v1"
+REFRESH_RESPONSE_KDF_INFO = b"p4-refresh-response-key/v1"
+REFRESH_RESERVED_CLAIMS = {
+    "sub",
+    "exp",
+    "iat",
+    "iss",
+    "jti",
+    "type",
+    "client_hash",
+}
+
+
+def _b64url_encode(data: bytes) -> str:
+    return base64.urlsafe_b64encode(data).decode("ascii").rstrip("=")
+
+
+def _b64url_decode(encoded: str) -> bytes:
+    padding = "=" * (-len(encoded) % 4)
+    return base64.urlsafe_b64decode(encoded + padding)
+
+
+def _derive_refresh_response_key(shared_secret_hex: str) -> bytes:
+    hkdf = HKDF(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=None,
+        info=REFRESH_RESPONSE_KDF_INFO,
+    )
+    return hkdf.derive(bytes.fromhex(shared_secret_hex))
 
 
 def create_refresh_token(
@@ -55,9 +96,11 @@ def create_refresh_token(
         "client_hash": client_hash,  # Client binding
     }
     
-    # Add additional claims if provided
+    # Preserve caller-supplied claims, but never allow overrides of core refresh claims.
     if additional_claims:
-        payload.update(additional_claims)
+        for key, value in additional_claims.items():
+            if key not in REFRESH_RESERVED_CLAIMS:
+                payload[key] = value
     
     # Encode refresh token
     refresh_token = jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
@@ -148,7 +191,7 @@ async def perform_kyber_refresh(
     client_binding: str,
     client_public_key: str,
     redis_client = None
-) -> Tuple[Dict[str, Any], str, str]:
+) -> Tuple[Dict[str, Any], str, bytes]:
     """
     Perform refresh with Kyber forward secrecy.
     
@@ -162,7 +205,7 @@ async def perform_kyber_refresh(
         redis_client: Redis client
     
     Returns:
-        Tuple of (new_access_token_payload, kem_ciphertext, encrypted_session_key)
+        Tuple of (validated_refresh_payload, kem_ciphertext, session_key)
     """
     # Validate refresh token and client binding
     refresh_payload = await validate_refresh_token(
@@ -180,35 +223,53 @@ async def perform_kyber_refresh(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Kyber KEM encapsulation failed: {str(e)}"
         )
-    
-    # Use shared secret to derive encryption key for session
-    from cryptography.hazmat.primitives import hashes
-    from cryptography.hazmat.primitives.kdf.hkdf import HKDF
-    from cryptography.hazmat.backends import default_backend
-    
-    hkdf = HKDF(
-        algorithm=hashes.SHA256(),
-        length=32,
-        salt=None,
-        info=b'refresh-session-key',
-        backend=default_backend()
-    )
-    session_key = hkdf.derive(bytes.fromhex(shared_secret))
-    
-    # Return new token payload and keys
-    # In production, encrypt the new access token with session_key
-    new_token_payload = {
-        "sub": refresh_payload.get("sub"),
-        "jti": str(uuid.uuid4()),
-        "refresh_jti": refresh_payload.get("jti"),  # Link to refresh token
-        "iat": datetime.now(timezone.utc),
-        "iss": JWT_ISSUER,
+
+    session_key = _derive_refresh_response_key(shared_secret)
+    return refresh_payload, kem_ciphertext, session_key
+
+
+def extract_refresh_additional_claims(refresh_payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Return caller-supplied claims that should survive refresh rotation."""
+    return {
+        key: value
+        for key, value in refresh_payload.items()
+        if key not in REFRESH_RESERVED_CLAIMS
     }
-    
-    # Encrypt session key with shared secret (simplified - use proper encryption in production)
-    encrypted_session_key = secrets.token_urlsafe(32)  # Placeholder
-    
-    return new_token_payload, kem_ciphertext, encrypted_session_key
+
+
+def encrypt_refresh_payload(session_key: bytes, payload: Dict[str, Any]) -> Tuple[str, str]:
+    """
+    Encrypt refreshed token material with the Kyber-derived session key.
+
+    Returns:
+        Tuple of (encrypted_payload_b64url, nonce_b64url)
+    """
+    plaintext = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    nonce = secrets.token_bytes(12)
+    ciphertext = AESGCM(session_key).encrypt(nonce, plaintext, REFRESH_RESPONSE_AAD)
+    return _b64url_encode(ciphertext), _b64url_encode(nonce)
+
+
+def decrypt_refresh_payload(
+    client_private_key: str,
+    kem_ciphertext: str,
+    encrypted_payload: str,
+    payload_nonce: str,
+) -> Dict[str, Any]:
+    """
+    Decrypt a protected refresh response using the client's private KEM key.
+    """
+    shared_secret = decapsulate_kyber_secret(client_private_key, kem_ciphertext)
+    session_key = _derive_refresh_response_key(shared_secret)
+    plaintext = AESGCM(session_key).decrypt(
+        _b64url_decode(payload_nonce),
+        _b64url_decode(encrypted_payload),
+        REFRESH_RESPONSE_AAD,
+    )
+    payload = json.loads(plaintext.decode("utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("Decrypted refresh payload is not an object")
+    return payload
 
 
 def get_refresh_token_claims(token: str) -> Dict[str, Any]:

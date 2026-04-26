@@ -26,9 +26,6 @@ except Exception as exc:
     _pq_mldsa_44 = None
     _PQ44_IMPORT_ERROR = exc
 
-from cryptography.hazmat.primitives.asymmetric import x25519
-from cryptography.hazmat.primitives import serialization
-
 
 def canonical_bytes(obj: dict) -> bytes:
     return json.dumps(obj, separators=(",", ":"), sort_keys=True).encode("utf-8")
@@ -348,7 +345,10 @@ def _get_enabled_kems() -> Optional[set[str]]:
 
 def _resolve_kem_alg() -> str:
     if not _oqs_kem_available():
-        raise RuntimeError("oqs KeyEncapsulation is unavailable")
+        raise RuntimeError(
+            "oqs KeyEncapsulation is unavailable. "
+            "Install liboqs and the official liboqs-python bindings."
+        )
     global _KEM_ALG_CACHE
     if _KEM_ALG_CACHE:
         return _KEM_ALG_CACHE
@@ -389,13 +389,19 @@ def _resolve_kem_alg() -> str:
     raise RuntimeError("No supported Kyber/ML-KEM mechanism available for oqs")
 
 
+def ensure_ml_kem_ready() -> str:
+    """
+    Require a working OQS KEM backend and return the selected ML-KEM algorithm.
+    """
+    _require_oqs()
+    return _resolve_kem_alg()
+
+
 # Kyber/ML-KEM Forward Secrecy Implementation
 class KyberKeyExchange:
     """
     Kyber/ML-KEM key encapsulation for forward secrecy.
-
-    Uses oqs (liboqs) for real Kyber KEM support.
-    Falls back to X25519 KEM-style exchange when oqs is unavailable.
+    Requires oqs (liboqs) at runtime and does not fall back to a non-ML-KEM exchange.
     """
 
     @staticmethod
@@ -404,21 +410,7 @@ class KyberKeyExchange:
         Generate a Kyber KEM key pair.
         Returns: (private_key, public_key) as bytes.
         """
-        if not _oqs_kem_available():
-            private_key = x25519.X25519PrivateKey.generate()
-            public_key = private_key.public_key()
-            private_bytes = private_key.private_bytes(
-                encoding=serialization.Encoding.Raw,
-                format=serialization.PrivateFormat.Raw,
-                encryption_algorithm=serialization.NoEncryption(),
-            )
-            public_bytes = public_key.public_bytes(
-                encoding=serialization.Encoding.Raw,
-                format=serialization.PublicFormat.Raw,
-            )
-            return private_bytes, public_bytes
-
-        alg = _resolve_kem_alg()
+        alg = ensure_ml_kem_ready()
         with oqs.KeyEncapsulation(alg) as kem:
             public_key = kem.generate_keypair()
             private_key = kem.export_secret_key()
@@ -431,18 +423,7 @@ class KyberKeyExchange:
 
         Returns: (ciphertext, shared_secret) as bytes.
         """
-        if not _oqs_kem_available():
-            ephemeral_private = x25519.X25519PrivateKey.generate()
-            ephemeral_public = ephemeral_private.public_key()
-            peer_public = x25519.X25519PublicKey.from_public_bytes(peer_public_key)
-            shared_secret = ephemeral_private.exchange(peer_public)
-            ciphertext = ephemeral_public.public_bytes(
-                encoding=serialization.Encoding.Raw,
-                format=serialization.PublicFormat.Raw,
-            )
-            return ciphertext, shared_secret
-
-        alg = _resolve_kem_alg()
+        alg = ensure_ml_kem_ready()
         with oqs.KeyEncapsulation(alg) as kem:
             ciphertext, shared_secret = kem.encap_secret(peer_public_key)
         return ciphertext, shared_secret
@@ -454,12 +435,7 @@ class KyberKeyExchange:
 
         Returns: shared_secret as bytes.
         """
-        if not _oqs_kem_available():
-            private = x25519.X25519PrivateKey.from_private_bytes(private_key)
-            peer_public = x25519.X25519PublicKey.from_public_bytes(ciphertext)
-            return private.exchange(peer_public)
-
-        alg = _resolve_kem_alg()
+        alg = ensure_ml_kem_ready()
         with oqs.KeyEncapsulation(alg, secret_key=private_key) as kem:
             return kem.decap_secret(ciphertext)
 

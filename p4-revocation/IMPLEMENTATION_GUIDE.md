@@ -5,7 +5,7 @@ This guide will walk you through setting up and running the complete JWT token s
 ## Prerequisites
 
 - Python 3.8 or higher
-- liboqs (required by oqs for Kyber KEM)
+- liboqs (required by `liboqs-python` for Kyber/ML-KEM)
 - Docker and Docker Compose (for Redis and Kafka)
 - Or install Redis and Kafka manually
 
@@ -29,7 +29,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-Note: `oqs` depends on `liboqs`; install liboqs if the pip install fails.
+Note: `liboqs-python` depends on `liboqs`; do not install the unrelated `oqs` package from PyPI.
 
 ## Step 2: Start Infrastructure Services
 
@@ -220,16 +220,19 @@ Response:
   "refresh_expires_in": 7776000,
   "refresh_jti": "uuid-here",
   "access_jti": "uuid-here",
+  "kid": "ratHRWiLKZr8phUlq97JWQ",
   "subject": "user123",
-  "client_public_key": "base64url-encoded-key"
+  "client_public_key": "BASE64URL_ML_KEM_PUBLIC_KEY"
 }
 ```
 
-**Important**: Save the `refresh_token` for the next step. The `client_public_key` is a convenience value; for real forward secrecy, generate a fresh client key pair per refresh.
+**Important**: Save the `refresh_token` for the next step. For forward secrecy, the client must generate its own Kyber/ML-KEM key pair for each refresh and retain the private key for decapsulation.
+The service now requires a working `oqs`/`liboqs` runtime and will fail startup if ML-KEM is unavailable.
+The returned `client_public_key` is for testing `/token/refresh/prove-keypair`; real refresh calls should send a newly generated client public key.
 
 ### 7.5 Refresh Access Token (with Kyber Forward Secrecy)
 
-First, generate a client Kyber KEM key pair and keep the private key for decapsulation (recommended). For quick tests, you can reuse the `client_public_key` returned by `/token/refresh/create`.
+First, generate a client Kyber/ML-KEM key pair and keep the private key for decapsulation.
 
 ```bash
 curl -X POST "http://localhost:8000/token/refresh" \
@@ -244,12 +247,15 @@ curl -X POST "http://localhost:8000/token/refresh" \
 Response:
 ```json
 {
-  "access_token": "eyJ...",
-  "refresh_token": null,
+  "refresh_jti": "uuid-here",
+  "refresh_expires_in": 7776000,
   "token_type": "bearer",
   "expires_in": 1800,
   "kem_ciphertext": "base64-encoded-ciphertext",
-  "encrypted_session_key": "encrypted-key",
+  "encrypted_payload": "base64url-aes-gcm-ciphertext",
+  "payload_nonce": "base64url-nonce",
+  "encryption_alg": "AES-256-GCM",
+  "kdf": "HKDF-SHA256",
   "access_jti": "uuid-here"
 }
 ```
@@ -269,7 +275,9 @@ curl -X POST "http://localhost:8000/revoke" \
 # Revoke refresh token
 curl -X POST "http://localhost:8000/token/refresh/revoke" \
   -H "Content-Type: application/json" \
-  -d '"YOUR_REFRESH_TOKEN_HERE"'
+  -d '{
+    "refresh_token": "YOUR_REFRESH_TOKEN_HERE"
+  }'
 ```
 
 ## Step 8: Client Implementation Example
@@ -279,6 +287,7 @@ curl -X POST "http://localhost:8000/token/refresh/revoke" \
 ```python
 import requests
 from app.pqc_crypto import KyberKeyExchange
+from app.refresh_token_utils import decrypt_refresh_payload
 
 # Base URL
 BASE_URL = "http://localhost:8000"
@@ -311,15 +320,17 @@ def refresh_access_token(refresh_token: str, client_binding: str):
     
     if response.status_code == 200:
         data = response.json()
-        # Decapsulate ciphertext to derive the shared secret
-        kem_ciphertext = data["kem_ciphertext"]
-        shared_secret = KyberKeyExchange.decapsulate(
-            private_key,
-            KyberKeyExchange.decode_ciphertext(kem_ciphertext)
+
+        private_key_encoded = KyberKeyExchange.encode_private_key(private_key)
+        protected = decrypt_refresh_payload(
+            private_key_encoded,
+            data["kem_ciphertext"],
+            data["encrypted_payload"],
+            data["payload_nonce"],
         )
-        return data, shared_secret
+        return protected
     
-    return None, None
+    return None
 
 # Usage
 if __name__ == "__main__":
@@ -329,7 +340,7 @@ if __name__ == "__main__":
     print(f"Refresh Token: {tokens['refresh_token']}")
     
     # Refresh token
-    new_tokens, secret = refresh_access_token(
+    new_tokens = refresh_access_token(
         tokens["refresh_token"],
         "device-abc123"
     )

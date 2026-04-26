@@ -1,4 +1,5 @@
 # app/main.py
+import hashlib
 import json
 import uuid
 import secrets
@@ -16,16 +17,19 @@ from .config import (
 )
 from .store_sqlite import (
     init_sqlite, insert_event, insert_refresh_token,
-    revoke_refresh_token, insert_token_event, get_latest_revocation_ts
+    revoke_refresh_token, insert_token_event, get_latest_revocation_ts,
+    update_refresh_token_usage
 )
-from .pqc_crypto import canonical_bytes, dilithium_sign, generate_kyber_keypair
+from .pqc_crypto import canonical_bytes, dilithium_sign, ensure_ml_kem_ready, generate_kyber_keypair
 from .kafka_pub import start_producer, publish_event, publish_token_event
 from .jwt_utils import get_token_claims, is_token_revoked
 from .p1_client import p1_signer_client
 from .refresh_token_utils import (
     create_refresh_token, perform_kyber_refresh,
-    get_refresh_token_claims
+    get_refresh_token_claims, encrypt_refresh_payload,
+    extract_refresh_additional_claims
 )
+from .pqc_crypto import decapsulate_kyber_secret, encapsulate_kyber_secret
 from .models import (
     RevokeRequest,
     RevokeResponse,
@@ -43,8 +47,13 @@ from .models import (
     TokenValidateResponse,
     RefreshTokenRequest,
     RefreshTokenResponse,
+    RefreshTokenKeyProofRequest,
+    RefreshTokenKeyProofResponse,
+    RefreshTokenCheckKeypairRequest,
+    RefreshTokenCheckKeypairResponse,
     RefreshTokenRefreshRequest,
-    RefreshTokenRefreshResponse
+    RefreshTokenRefreshResponse,
+    RefreshTokenRevokeRequest,
 )
 
 app = FastAPI(title="P4 Enhanced Secure Revocation (SQLite)", version="1.0")
@@ -239,6 +248,7 @@ async def validate_access_token_provider_aware(
 async def startup():
     global rds, producer
     init_sqlite()
+    ensure_ml_kem_ready()
     rds = redis.from_url(REDIS_URL, decode_responses=True)
     producer = await start_producer()
 
@@ -669,7 +679,7 @@ async def inspect_token(token: str):
         raise e
 
 
-@app.post("/token/refresh/create", response_model=RefreshTokenResponse)
+@app.post("/token/refresh/create", response_model=RefreshTokenResponse, response_model_exclude_none=True)
 async def create_refresh_token_endpoint(req: RefreshTokenRequest):
     """
     Create a new refresh token with client binding and Kyber forward secrecy.
@@ -678,7 +688,9 @@ async def create_refresh_token_endpoint(req: RefreshTokenRequest):
     - **client_binding**: Client identifier (device fingerprint, IP+UA hash, etc.)
     - **additional_claims**: Optional additional claims
     
-    Returns both access token and refresh token for Kyber-forward-secure refresh.
+    Returns an access token plus a refresh token. The client must generate and
+    retain its own Kyber/ML-KEM key pair for later `/token/refresh` calls.
+    For Swagger/demo clients, this response also includes a generated ML-KEM public key.
     """
     global rds, producer
     if not rds or not producer:
@@ -711,6 +723,11 @@ async def create_refresh_token_endpoint(req: RefreshTokenRequest):
     )
     access_jti = access_claims.get("jti")
     access_exp = access_claims.get("exp")
+    access_header = _decode_unverified_header(access_token)
+    access_kid = access_header.get("kid")
+    if not isinstance(access_kid, str) or not access_kid:
+        raise HTTPException(status_code=502, detail="P1 access token missing kid")
+    client_public_key, client_private_key = generate_kyber_keypair()
     
     # Calculate expiration times
     if refresh_exp:
@@ -730,7 +747,7 @@ async def create_refresh_token_endpoint(req: RefreshTokenRequest):
             token_id=refresh_jti,
             subject=req.subject,
             client_hash=client_hash,
-            kyber_public_key=None,
+            kyber_public_key=client_public_key,
             created_at=ts,
             expires_at=expires_at
         )
@@ -745,6 +762,7 @@ async def create_refresh_token_endpoint(req: RefreshTokenRequest):
             "client_hash": client_hash
         })
     )
+    await rds.setex(f"refresh_kem_private:{refresh_jti}", refresh_expires_in, client_private_key)
     
     # Publish token creation event to Kafka
     token_event = {
@@ -773,8 +791,6 @@ async def create_refresh_token_endpoint(req: RefreshTokenRequest):
     # Publish to Kafka
     await publish_token_event(producer, canonical_bytes(token_event))
     
-    client_public_key, _ = generate_kyber_keypair()
-
     return RefreshTokenResponse(
         refresh_token=refresh_token,
         access_token=access_token,
@@ -783,12 +799,101 @@ async def create_refresh_token_endpoint(req: RefreshTokenRequest):
         refresh_expires_in=refresh_expires_in,
         refresh_jti=refresh_jti,
         access_jti=access_jti,
+        kid=access_kid,
         subject=req.subject,
-        client_public_key=client_public_key
+        client_public_key=client_public_key,
     )
 
 
-@app.post("/token/refresh", response_model=RefreshTokenRefreshResponse)
+@app.post(
+    "/token/refresh/prove-keypair",
+    response_model=RefreshTokenKeyProofResponse,
+    response_model_exclude_none=True,
+    include_in_schema=False,
+)
+async def prove_refresh_keypair_endpoint(req: RefreshTokenKeyProofRequest):
+    """
+    Test-only endpoint that proves the server still holds the private key matching
+    the demo `client_public_key` returned by `/token/refresh/create`.
+
+    Client flow:
+    1. Call `/token/refresh/create`
+    2. Encapsulate to the returned `client_public_key`
+    3. Send the resulting `kem_ciphertext` here
+    4. Compare the returned `shared_secret_sha256` to the client-side hash
+    """
+    global rds
+    if not rds:
+        raise HTTPException(status_code=503, detail="Service not ready")
+
+    refresh_claims = get_refresh_token_claims(req.refresh_token)
+    refresh_jti = refresh_claims.get("jti")
+    subject = refresh_claims.get("sub")
+    if not isinstance(refresh_jti, str) or not refresh_jti:
+        raise HTTPException(status_code=400, detail="Invalid refresh token claims")
+
+    stored_private_key = await rds.get(f"refresh_kem_private:{refresh_jti}")
+    if not stored_private_key:
+        raise HTTPException(
+            status_code=404,
+            detail="No stored demo private key found for this refresh token"
+        )
+
+    try:
+        shared_secret_hex = decapsulate_kyber_secret(stored_private_key, req.kem_ciphertext)
+        shared_secret_sha256 = hashlib.sha256(bytes.fromhex(shared_secret_hex)).hexdigest()
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Keypair proof decapsulation failed: {exc}")
+
+    matches_expected = None
+    proof_valid = True
+    message = "Keypair proof succeeded"
+    if req.expected_shared_secret_sha256:
+        expected = req.expected_shared_secret_sha256.strip().lower()
+        matches_expected = shared_secret_sha256 == expected
+        proof_valid = matches_expected
+        if not matches_expected:
+            message = "Keypair proof failed: shared secret hash mismatch"
+
+    return RefreshTokenKeyProofResponse(
+        proof_valid=proof_valid,
+        refresh_jti=refresh_jti,
+        subject=subject if isinstance(subject, str) else None,
+        kem_algorithm=ensure_ml_kem_ready(),
+        shared_secret_sha256=shared_secret_sha256,
+        matches_expected=matches_expected,
+        message=message,
+    )
+
+
+@app.post("/token/refresh/check-keypair", response_model=RefreshTokenCheckKeypairResponse)
+async def check_refresh_keypair_endpoint(req: RefreshTokenCheckKeypairRequest):
+    """
+    Test-only endpoint for Swagger/manual verification of an ML-KEM key pair.
+
+    It encapsulates to the supplied public key, decapsulates with the supplied
+    private key, and returns whether the derived shared secrets match.
+    """
+    try:
+        kem_ciphertext, shared_secret_1 = encapsulate_kyber_secret(req.client_public_key)
+        shared_secret_2 = decapsulate_kyber_secret(req.client_private_key, kem_ciphertext)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Keypair check failed: {exc}")
+
+    match = shared_secret_1 == shared_secret_2
+    message = "Keypair matches" if match else "Keypair does not match"
+
+    return RefreshTokenCheckKeypairResponse(
+        match=match,
+        kem_algorithm=ensure_ml_kem_ready(),
+        kem_ciphertext=kem_ciphertext,
+        encapsulated_shared_secret=shared_secret_1,
+        decapsulated_shared_secret=shared_secret_2,
+        message=message,
+    )
+
+
+@app.post("/token/refresh", response_model=RefreshTokenRefreshResponse, response_model_exclude_none=True)
 async def refresh_token_endpoint(req: RefreshTokenRefreshRequest):
     """
     Refresh access token using refresh token with Kyber forward secrecy.
@@ -797,7 +902,8 @@ async def refresh_token_endpoint(req: RefreshTokenRefreshRequest):
     - **client_binding**: Current client identifier (must match original)
     - **client_public_key**: Client's Kyber KEM public key for forward secrecy
     
-    Returns new access token, rotated refresh token, and Kyber KEM ciphertext.
+    Returns a Kyber/ML-KEM protected payload containing the new access token and
+    rotated refresh token. The server never returns refreshed tokens in plaintext.
     """
     global rds, producer
     if not rds or not producer:
@@ -808,7 +914,7 @@ async def refresh_token_endpoint(req: RefreshTokenRefreshRequest):
 
     # Perform Kyber-based refresh
     try:
-        _, kem_ciphertext, encrypted_session_key = await perform_kyber_refresh(
+        refresh_claims, kem_ciphertext, session_key = await perform_kyber_refresh(
             refresh_token=req.refresh_token,
             client_binding=req.client_binding,
             client_public_key=req.client_public_key,
@@ -818,16 +924,19 @@ async def refresh_token_endpoint(req: RefreshTokenRefreshRequest):
         raise
 
     # Validate current refresh token identity before rotating
-    refresh_claims = get_refresh_token_claims(req.refresh_token)
     old_refresh_jti = refresh_claims.get("jti")
     subject = refresh_claims.get("sub")
     if not old_refresh_jti or not subject:
         raise HTTPException(status_code=400, detail="Invalid refresh token claims")
 
+    additional_claims = extract_refresh_additional_claims(refresh_claims)
+    update_refresh_token_usage(old_refresh_jti, ts)
+
     # Rotate refresh token: issue a brand-new one bound to the same client binding
     new_refresh_token, client_hash = create_refresh_token(
         subject=subject,
         client_binding=req.client_binding,
+        additional_claims=additional_claims,
     )
     new_refresh_claims = get_refresh_token_claims(new_refresh_token)
     new_refresh_jti = new_refresh_claims.get("jti")
@@ -836,9 +945,12 @@ async def refresh_token_endpoint(req: RefreshTokenRefreshRequest):
         raise HTTPException(status_code=500, detail="Failed to rotate refresh token")
 
     # Create new access token linked to the new refresh token
+    access_additional_claims = dict(additional_claims)
+    access_additional_claims["refresh_jti"] = new_refresh_jti
+    access_additional_claims["prev_refresh_jti"] = old_refresh_jti
     access_token, access_claims = await issue_access_token(
         subject=subject,
-        additional_claims={"refresh_jti": new_refresh_jti, "prev_refresh_jti": old_refresh_jti}
+        additional_claims=access_additional_claims
     )
     access_jti = access_claims.get("jti")
     access_exp = access_claims.get("exp")
@@ -862,6 +974,7 @@ async def refresh_token_endpoint(req: RefreshTokenRefreshRequest):
     revoke_refresh_token(old_refresh_jti, ts)
     await rds.set(f"revoked:jti:{old_refresh_jti}", "1")
     await rds.delete(f"refresh_token:{old_refresh_jti}")
+    await rds.delete(f"refresh_kem_private:{old_refresh_jti}")
 
     # Persist and cache rotated refresh token
     insert_refresh_token(
@@ -931,21 +1044,31 @@ async def refresh_token_endpoint(req: RefreshTokenRefreshRequest):
     # Publish to Kafka
     await publish_token_event(producer, canonical_bytes(refresh_event))
 
+    protected_payload = {
+        "access_token": access_token,
+        "refresh_token": new_refresh_token,
+        "refresh_jti": new_refresh_jti,
+        "refresh_expires_in": refresh_expires_in,
+        "token_type": "bearer",
+        "expires_in": expires_in,
+        "access_jti": access_jti,
+    }
+    encrypted_payload, payload_nonce = encrypt_refresh_payload(session_key, protected_payload)
+
     return RefreshTokenRefreshResponse(
-        access_token=access_token,
-        refresh_token=new_refresh_token,
         refresh_jti=new_refresh_jti,
         refresh_expires_in=refresh_expires_in,
         token_type="bearer",
         expires_in=expires_in,
         kem_ciphertext=kem_ciphertext,
-        encrypted_session_key=encrypted_session_key,
+        encrypted_payload=encrypted_payload,
+        payload_nonce=payload_nonce,
         access_jti=access_jti
     )
 
 
 @app.post("/token/refresh/revoke", response_model=RevokeResponse)
-async def revoke_refresh_token_endpoint(refresh_token: str):
+async def revoke_refresh_token_endpoint(req: RefreshTokenRevokeRequest):
     """
     Revoke a refresh token.
     This will invalidate the refresh token and prevent future use.
@@ -956,7 +1079,7 @@ async def revoke_refresh_token_endpoint(refresh_token: str):
     
     # Get refresh token claims
     try:
-        refresh_claims = get_refresh_token_claims(refresh_token)
+        refresh_claims = get_refresh_token_claims(req.refresh_token)
         refresh_jti = refresh_claims.get("jti")
         if not refresh_jti:
             raise HTTPException(status_code=400, detail="Invalid refresh token")
@@ -991,6 +1114,7 @@ async def revoke_refresh_token_endpoint(refresh_token: str):
     
     # Also remove from refresh token cache
     await rds.delete(f"refresh_token:{refresh_jti}")
+    await rds.delete(f"refresh_kem_private:{refresh_jti}")
     
     # 3) Broadcast to other services (Kafka)
     await publish_event(producer, canonical_bytes(event))

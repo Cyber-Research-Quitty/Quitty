@@ -8,6 +8,7 @@
 - **JWT token generation and validation** with revocation checking
 - **Refresh tokens with client binding** to prevent reuse on stolen devices
 - **Kyber-based forward secrecy** in refresh flow for post-quantum security
+- **Demo keypair proof endpoint** to verify the displayed ML-KEM public key without exposing its private key
 - **Kafka event streaming** for fast propagation of token events across services
 - **Redis cache + SQLite audit log** for fast decisions and durability
 
@@ -26,7 +27,7 @@
 ### Kyber Forward Secrecy
 - Post-quantum cryptography for key exchange during refresh
 - Forward secrecy ensures past sessions remain secure even if keys are compromised
-- Uses Kyber/ML-KEM (oqs) for KEM-based forward secrecy
+- Uses Kyber/ML-KEM through the official `liboqs-python` bindings and `liboqs`
 
 ### Event Streaming
 - Kafka-based event streaming for fast propagation across services
@@ -56,6 +57,8 @@ docker-compose up -d
 ### 3. Test the API
 ```bash
 # Visit http://localhost:8400/docs for interactive API documentation
+# Run the end-to-end verifier inside the API container
+docker exec -i p4-api python /app/scripts/verify_refresh_endpoints.py
 ```
 
 ## Documentation

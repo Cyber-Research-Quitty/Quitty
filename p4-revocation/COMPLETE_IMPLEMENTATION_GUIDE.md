@@ -154,9 +154,9 @@ This installs:
 - `aiokafka` - Kafka client
 - `PyJWT` - JWT handling
 - `cryptography` - Cryptographic operations
-- `oqs` - Kyber/ML-KEM via liboqs
+- `liboqs-python` - official Python bindings for Kyber/ML-KEM via liboqs
 
-Note: `oqs` depends on `liboqs`; install liboqs if the pip install fails.
+Note: `liboqs-python` depends on `liboqs`; do not install the unrelated `oqs` package from PyPI.
 
 ### Step 4: Start Infrastructure Services
 
@@ -519,6 +519,7 @@ curl -X POST http://localhost:8000/revoke \
 **POST** `/token/refresh/create`
 
 Create a refresh token with client binding and Kyber forward secrecy.
+The service now requires `oqs`/`liboqs` at runtime and fails startup if ML-KEM is unavailable.
 
 **Request Body:**
 ```json
@@ -535,14 +536,15 @@ Create a refresh token with client binding and Kyber forward secrecy.
 ```json
 {
   "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "access_token": "eyJhbGciOiJtbC1kc2EtNDQiLCJraWQiOiJraWQtaGVyZSIsInR5cCI6IkpXVCJ9...",
   "token_type": "bearer",
   "expires_in": 1800,
   "refresh_expires_in": 7776000,
   "refresh_jti": "770e8400-e29b-41d4-a716-446655440002",
   "access_jti": "880e8400-e29b-41d4-a716-446655440003",
+  "kid": "ratHRWiLKZr8phUlq97JWQ",
   "subject": "user123",
-  "client_public_key": "dGVzdC1wdWJsaWMta2V5LWJhc2U2NA=="
+  "client_public_key": "BASE64URL_ML_KEM_PUBLIC_KEY"
 }
 ```
 
@@ -576,13 +578,16 @@ Refresh access token using refresh token with Kyber forward secrecy.
 **Response:**
 ```json
 {
-  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "refresh_token": null,
+  "refresh_jti": "990e8400-e29b-41d4-a716-446655440004",
+  "refresh_expires_in": 7776000,
   "token_type": "bearer",
   "expires_in": 1800,
   "kem_ciphertext": "c2VydmVyLWNpcGhlcnRleHQtYmFzZTY0",
-  "encrypted_session_key": "encrypted-session-key-here",
-  "access_jti": "990e8400-e29b-41d4-a716-446655440004"
+  "encrypted_payload": "base64url-aes-gcm-ciphertext",
+  "payload_nonce": "base64url-nonce",
+  "encryption_alg": "AES-256-GCM",
+  "kdf": "HKDF-SHA256",
+  "access_jti": "aa0e8400-e29b-41d4-a716-446655440005"
 }
 ```
 
@@ -595,8 +600,10 @@ Refresh access token using refresh token with Kyber forward secrecy.
 Revoke a refresh token (logout).
 
 **Request Body:**
-```
-"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+```json
+{
+  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
 ```
 
 **Response:**
@@ -611,7 +618,9 @@ Revoke a refresh token (logout).
 ```bash
 curl -X POST http://localhost:8000/token/refresh/revoke \
   -H "Content-Type: application/json" \
-  -d '"YOUR_REFRESH_TOKEN"'
+  -d '{
+    "refresh_token": "YOUR_REFRESH_TOKEN"
+  }'
 ```
 
 ---
@@ -709,6 +718,7 @@ await fetch(`${BASE_URL}/revoke`, {
 ```python
 import requests
 from app.pqc_crypto import KyberKeyExchange
+from app.refresh_token_utils import decrypt_refresh_payload
 
 BASE_URL = "http://localhost:8000"
 
@@ -724,7 +734,6 @@ response = requests.post(
 tokens = response.json()
 
 refresh_token = tokens["refresh_token"]
-# Optional: tokens.get("client_public_key") is a convenience value for quick tests.
 
 # Store securely (encrypted)
 save_refresh_token(refresh_token)
@@ -746,15 +755,16 @@ def refresh_access_token():
     
     if response.status_code == 200:
         data = response.json()
-        
-        # Decapsulate ciphertext to derive shared secret
-        kem_ciphertext = data["kem_ciphertext"]
-        shared_secret = KyberKeyExchange.decapsulate(
-            client_private_key,
-            KyberKeyExchange.decode_ciphertext(kem_ciphertext)
+
+        private_key_encoded = KyberKeyExchange.encode_private_key(client_private_key)
+        protected = decrypt_refresh_payload(
+            private_key_encoded,
+            data["kem_ciphertext"],
+            data["encrypted_payload"],
+            data["payload_nonce"],
         )
-        
-        return data["access_token"], shared_secret
+
+        return protected["access_token"], protected["refresh_token"]
     else:
         # Refresh token expired or revoked - need to re-login
         return None, None

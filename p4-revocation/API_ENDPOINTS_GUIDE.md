@@ -244,14 +244,15 @@ print(f"Token subject: {claims['claims']['sub']}")
 ```json
 {
   "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "access_token": "eyJhbGciOiJtbC1kc2EtNDQiLCJraWQiOiJraWQtaGVyZSIsInR5cCI6IkpXVCJ9...",
   "token_type": "bearer",
   "expires_in": 1800,                      // Access token expiration (seconds)
   "refresh_expires_in": 7776000,           // Refresh token expiration (90 days)
   "refresh_jti": "550e8400-e29b-41d4-a716-446655440000",
   "access_jti": "660e8400-e29b-41d4-a716-446655440001",
+  "kid": "ratHRWiLKZr8phUlq97JWQ",
   "subject": "user123",
-  "client_public_key": "dGVzdC1wdWJsaWMta2V5LWJhc2U2NA=="
+  "client_public_key": "BASE64URL_ML_KEM_PUBLIC_KEY"
 }
 ```
 
@@ -279,16 +280,53 @@ def login_with_refresh(username, device_id):
 - **Long-lived**: Valid for 90 days (configurable)
 - **Security**: Cannot be used on different devices
 - **Forward Secrecy**: Kyber KEM used during refresh
+- **Runtime Requirement**: The service requires `oqs`/`liboqs`; startup fails if ML-KEM is unavailable
 
 **Important**: 
 - Store `refresh_token` securely (encrypted storage)
 - Use same `client_binding` value when refreshing
-- Generate a new Kyber KEM key pair per refresh and keep the private key for decapsulation (recommended)
-- The `client_public_key` above is a convenience value for quick testing
+- Generate a new Kyber/ML-KEM key pair per refresh and keep the private key for decapsulation
+- The returned `client_public_key` is demo/test material for `/token/refresh/prove-keypair`, not the public key to reuse for real refresh calls
 
 ---
 
-#### 7. POST `/token/refresh` - Refresh Access Token
+#### 7. POST `/token/refresh/prove-keypair` - Prove Demo Keypair
+**Purpose**: Verify that the demo `client_public_key` returned by `/token/refresh/create` matches a real private key held by P4, without exposing that private key
+
+**When to use**:
+- Testing the create response in Swagger
+- Proving the displayed public key is real
+- Verifying the ML-KEM runtime end to end
+
+**Request Body**:
+```json
+{
+  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "kem_ciphertext": "BASE64URL_KEM_CIPHERTEXT",
+  "expected_shared_secret_sha256": "OPTIONAL_SHA256_HEX"
+}
+```
+
+**Response**:
+```json
+{
+  "proof_valid": true,
+  "refresh_jti": "550e8400-e29b-41d4-a716-446655440000",
+  "subject": "user123",
+  "kem_algorithm": "ML-KEM-512",
+  "shared_secret_sha256": "6a1d...hex...",
+  "matches_expected": true,
+  "message": "Keypair proof succeeded"
+}
+```
+
+**Important**:
+- This endpoint is test-only
+- Call it before `/token/refresh`, because `/token/refresh` rotates the token and deletes the old demo private key
+
+---
+
+#### 8. POST `/token/refresh` - Refresh Access Token
 **Purpose**: Get a new access token using refresh token with Kyber forward secrecy
 
 **When to use**:
@@ -308,44 +346,47 @@ def login_with_refresh(username, device_id):
 **Response**:
 ```json
 {
-  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "refresh_token": null,                   // Token rotation (future feature)
+  "refresh_jti": "880e8400-e29b-41d4-a716-446655440003",
+  "refresh_expires_in": 7776000,
   "token_type": "bearer",
   "expires_in": 1800,
   "kem_ciphertext": "c2VydmVyLWNpcGhlcnRleHQtYmFzZTY0",     // Kyber KEM ciphertext
-  "encrypted_session_key": "encrypted-session-key-here",
+  "encrypted_payload": "base64url-aes-gcm-ciphertext",
+  "payload_nonce": "base64url-nonce",
+  "encryption_alg": "AES-256-GCM",
+  "kdf": "HKDF-SHA256",
   "access_jti": "770e8400-e29b-41d4-a716-446655440002"
 }
 ```
 
 **Client Use Case**:
 ```python
-from app.pqc_crypto import KyberKeyExchange
+from app.pqc_crypto import generate_kyber_keypair
+from app.refresh_token_utils import decrypt_refresh_payload
 
 def refresh_access_token(refresh_token, device_id):
-    # Generate client key pair for forward secrecy
-    private_key, public_key = KyberKeyExchange.generate_keypair()
-    public_key_encoded = KyberKeyExchange.encode_public_key(public_key)
+    client_public_key, client_private_key = generate_kyber_keypair()
     
     response = requests.post(
         "http://localhost:8000/token/refresh",
         json={
             "refresh_token": refresh_token,
             "client_binding": device_id,
-            "client_public_key": public_key_encoded
+            "client_public_key": client_public_key
         }
     )
     
     if response.status_code == 200:
         data = response.json()
-        
-        # Decapsulate ciphertext to derive shared secret
-        kem_ciphertext = data["kem_ciphertext"]
-        ciphertext = KyberKeyExchange.decode_ciphertext(kem_ciphertext)
-        shared_secret = KyberKeyExchange.decapsulate(private_key, ciphertext)
-        
-        # Use shared_secret for secure communication
-        return data["access_token"], shared_secret
+
+        protected = decrypt_refresh_payload(
+            client_private_key,
+            data["kem_ciphertext"],
+            data["encrypted_payload"],
+            data["payload_nonce"]
+        )
+
+        return protected["access_token"], protected["refresh_token"]
     
     return None, None
 ```
@@ -362,7 +403,7 @@ def refresh_access_token(refresh_token, device_id):
 
 ---
 
-#### 8. POST `/token/refresh/revoke` - Revoke Refresh Token
+#### 9. POST `/token/refresh/revoke` - Revoke Refresh Token
 **Purpose**: Immediately invalidate a refresh token (logout, security breach, etc.)
 
 **When to use**:
@@ -373,7 +414,9 @@ def refresh_access_token(refresh_token, device_id):
 
 **Request Body**:
 ```json
-"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."  // Just the refresh token string
+{
+  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
 ```
 
 **Response**:
@@ -390,7 +433,7 @@ def refresh_access_token(refresh_token, device_id):
 def logout(refresh_token):
     response = requests.post(
         "http://localhost:8000/token/refresh/revoke",
-        json=refresh_token
+        json={"refresh_token": refresh_token}
     )
     
     if response.status_code == 200:
@@ -555,7 +598,7 @@ def refresh_if_needed():
 # 4. Logout
 requests.post(
     "http://localhost:8000/token/refresh/revoke",
-    json=get_refresh_token()
+    json={"refresh_token": get_refresh_token()}
 )
 ```
 
@@ -577,7 +620,7 @@ requests.post(
 # 2. Revoke specific refresh token if known
 requests.post(
     "http://localhost:8000/token/refresh/revoke",
-    json=compromised_refresh_token
+    json={"refresh_token": compromised_refresh_token}
 )
 
 # 3. Force re-authentication
@@ -596,9 +639,10 @@ requests.post(
 | 4 | POST | `/token/validate` | Validate token | Security check |
 | 5 | GET | `/token/inspect` | Inspect token | Debugging |
 | 6 | POST | `/token/refresh/create` | Create refresh token | Long-term session |
-| 7 | POST | `/token/refresh` | Refresh token | Token renewal |
-| 8 | POST | `/token/refresh/revoke` | Revoke refresh token | Logout |
-| 9 | POST | `/revoke` | Revoke token | Security/Logout |
+| 7 | POST | `/token/refresh/prove-keypair` | Prove demo ML-KEM keypair | Swagger/testing |
+| 8 | POST | `/token/refresh` | Refresh token | Token renewal |
+| 9 | POST | `/token/refresh/revoke` | Revoke refresh token | Logout |
+| 10 | POST | `/revoke` | Revoke token | Security/Logout |
 
 ---
 

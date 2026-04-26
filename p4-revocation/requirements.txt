@@ -8,5 +8,5 @@ cryptography==42.0.5
 requests==2.31.0
 httpx==0.27.2
 prometheus-client
-oqs
+liboqs-python==0.14.1
 pqcrypto
