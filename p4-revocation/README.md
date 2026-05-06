@@ -72,6 +72,7 @@ docker exec -i p4-api python /app/scripts/verify_refresh_endpoints.py
   - Troubleshooting guide
   - Security best practices
   
+- **[REAL_WORLD_SCENARIO.md](REAL_WORLD_SCENARIO.md)** - Quitty e-commerce scenario showing the complete P4 flow for login, protected API access, stolen-device revocation, subject/key revocation, refresh-token rotation, and audit evidence.
 - **[IMPLEMENTATION_GUIDE.md](IMPLEMENTATION_GUIDE.md)** - Quick setup and usage guide
 - **[API_ENDPOINTS_GUIDE.md](API_ENDPOINTS_GUIDE.md)** - Detailed endpoint documentation
 - **[REVOKE_ENDPOINT_EXPLAINED.md](REVOKE_ENDPOINT_EXPLAINED.md)** - Revocation endpoint deep dive

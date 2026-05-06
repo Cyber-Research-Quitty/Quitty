@@ -28,6 +28,11 @@ P4_TOKEN_META_URL_TEMPLATE = os.getenv(
 )
 TOKEN_TIMEOUT_SECONDS = float(os.getenv("TOKEN_TIMEOUT_SECONDS", "5"))
 JWT_ISSUER = os.getenv("JWT_ISSUER", "p4-revocation-service")
+WEB_CORS_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv("WEB_CORS_ORIGINS", "http://localhost:3000,http://localhost:3050").split(",")
+    if origin.strip()
+]
 
 
 def _origin_from_url(url: str) -> str:
@@ -83,7 +88,7 @@ async def lifespan(_: FastAPI):
 app = FastAPI(title="auth-service", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=WEB_CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

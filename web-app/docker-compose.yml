@@ -58,7 +58,7 @@ services:
       NEXT_PUBLIC_CART_API_URL: ${WEB_CART_API_URL:-http://localhost:8003}
       NEXT_PUBLIC_PRODUCT_API_URL: ${WEB_PRODUCT_API_URL:-http://localhost:8004}
     ports:
-      - '3000:3000'
+      - '3050:3000'
     depends_on:
       - auth
       - cart

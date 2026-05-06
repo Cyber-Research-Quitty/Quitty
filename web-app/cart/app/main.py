@@ -9,11 +9,16 @@ from pydantic import BaseModel
 DB_SERVICE_URL = os.getenv("DB_SERVICE_URL", "http://db:8002")
 P3_VALIDATE_URL = os.getenv("P3_VALIDATE_URL", "http://host.docker.internal:8300/guard/validate")
 TOKEN_TIMEOUT_SECONDS = float(os.getenv("TOKEN_TIMEOUT_SECONDS", "5"))
+WEB_CORS_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv("WEB_CORS_ORIGINS", "http://localhost:3000,http://localhost:3050").split(",")
+    if origin.strip()
+]
 
 app = FastAPI(title="cart-service")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=WEB_CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
